@@ -1,20 +1,20 @@
 # Yandex Practicum Data Engineer — Project Portfolio
 
-English-language overview and translations of the project work completed during the Yandex Practicum Data Engineer course. Each project lives in its own repository at sibling directories in `~/PycharmProjects/`. The source README of every project is written in Russian; this directory contains English translations together with a short description of each deliverable.
+English-language overview and translations of the project work completed during the Yandex Practicum Data Engineer course. This is a single portfolio repository: the English translations and short descriptions live at the top level (`sprint-*/` and `final-*/`), while the original project source code — snapshotted from each GitHub repo — is embedded under [`de-projects/`](de-projects/) as example material. The source READMEs are in Russian; the translations and overviews here are in English.
 
 Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. Sprint 4 (data quality) exists only as an empty placeholder folder inside the sprint 3 repository and has no submitted project.
 
 ## Project index
 
-| # | Directory | Title | Source repository | Stack | Theme |
-|---|-----------|-------|-------------------|-------|-------|
-| 1 | [sprint-3-customer-retention](sprint-3-customer-retention/README.md) | Customer Retention ETL | `data_engineering/` | Airflow, PostgreSQL, SQLAlchemy, pandas | API → stage → `mart.f_sales` + weekly retention mart |
-| 2 | [sprint-5-courier-ledger](sprint-5-courier-ledger/README.md) | Courier Payout Data Mart | `de-project-sprint-5/` | Airflow, PostgreSQL, REST API | Multi-layer DWH (STG → DDS → CDM) |
-| 3 | [sprint-6-group-conversion](sprint-6-group-conversion/README.md) | Social Network Group Conversion | `de-project-sprint-6/` | Airflow, Vertica, S3, pandas | Data Vault extension, analytical SQL |
-| 4 | [sprint-7-geo-recommendations](sprint-7-geo-recommendations/README.md) | Geo Recommendations Data Lake | `de-project-sprint-7/` | PySpark, HDFS, YARN, Airflow | Three-layer Data Lake (RAW → ODS → MART) |
-| 5 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming | `de-project-sprint-8/` | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
-| 6 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | `de-project-sprint-9/` | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
-| 7 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | `de-project-final/` | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
+| # | Description | Title | Source code | Stack | Theme |
+|---|-------------|-------|-------------|-------|-------|
+| 1 | [sprint-3-customer-retention](sprint-3-customer-retention/README.md) | Customer Retention ETL | [de-projects/de-project-sprint-3](de-projects/de-project-sprint-3/) | Airflow, PostgreSQL, SQLAlchemy, pandas | API → stage → `mart.f_sales` + weekly retention mart |
+| 2 | [sprint-5-courier-ledger](sprint-5-courier-ledger/README.md) | Courier Payout Data Mart | [de-projects/de-project-sprint-5](de-projects/de-project-sprint-5/) | Airflow, PostgreSQL, REST API | Multi-layer DWH (STG → DDS → CDM) |
+| 3 | [sprint-6-group-conversion](sprint-6-group-conversion/README.md) | Social Network Group Conversion | [de-projects/de-project-sprint-6](de-projects/de-project-sprint-6/) | Airflow, Vertica, S3, pandas | Data Vault extension, analytical SQL |
+| 4 | [sprint-7-geo-recommendations](sprint-7-geo-recommendations/README.md) | Geo Recommendations Data Lake | [de-projects/de-project-sprint-7](de-projects/de-project-sprint-7/) | PySpark, HDFS, YARN, Airflow | Three-layer Data Lake (RAW → ODS → MART) |
+| 5 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming | [de-projects/de-project-sprint-8](de-projects/de-project-sprint-8/) | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
+| 6 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | [de-projects/de-project-sprint-9](de-projects/de-project-sprint-9/) | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
+| 7 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | [de-projects/de-project-final](de-projects/de-project-final/) | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
 
 ## Short descriptions (English)
 

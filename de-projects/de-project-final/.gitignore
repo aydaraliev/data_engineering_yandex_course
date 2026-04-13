@@ -1,0 +1,24 @@
+# Credentials
+credentials.env
+*.env
+
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.eggs/
+*.egg-info/
+*.egg
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

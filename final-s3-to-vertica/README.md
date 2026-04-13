@@ -1,4 +1,4 @@
-# ETL Pipeline: S3 → Vertica
+# Final Project: S3 → Vertica ETL
 
 Final project for the Data Engineer course. An ETL pipeline that loads transaction data from S3 into the Vertica analytical warehouse.
 

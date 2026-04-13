@@ -1,6 +1,6 @@
-# Restaurant Subscribe Streaming Service
+# Sprint 8 Project: Restaurant Subscription Streaming Service
 
-Sprint 8 project: a streaming service that processes restaurant subscriptions for a food-delivery aggregator.
+A streaming service that processes restaurant subscriptions for a food-delivery aggregator.
 
 ## Description
 

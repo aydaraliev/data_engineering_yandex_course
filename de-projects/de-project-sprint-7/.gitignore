@@ -1,0 +1,59 @@
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs and status files
+*.log
+*.out
+*.err
+pipeline_status_*.txt
+first_run_*.log
+dag_run_*.log
+
+# Temporary files
+*.tmp
+*.temp
+.output.txt
+
+# Backup files
+*_backup.*
+*_original.*
+*.bak
+
+# OS files
+Thumbs.db
+.directory
+
+# Project specific
+debug_*.log
+*_debug.py
+verify_*.md

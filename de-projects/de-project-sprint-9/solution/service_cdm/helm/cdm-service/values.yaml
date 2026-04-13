@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: cr.yandex/crp5jrq3v9u1b9npu54p/cdm-service
+  tag: "2026.01.17"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 5000
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "50m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+env:
+  FLASK_APP: "cdm_service"
+  DEBUG: "False"
+  KAFKA_PORT: "9091"
+  KAFKA_CONSUMER_GROUP: "cdm-service-group"
+  KAFKA_SOURCE_TOPIC: "dds-service-orders"
+  PG_WAREHOUSE_PORT: "6432"
+
+# Secrets should be created separately:
+# kubectl create secret generic cdm-service-secrets --from-literal=...
+secretName: cdm-service-secrets
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readiness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 5

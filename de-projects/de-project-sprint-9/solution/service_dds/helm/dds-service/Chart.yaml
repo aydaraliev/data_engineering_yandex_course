@@ -1,0 +1,6 @@
+apiVersion: v2
+name: dds-service
+description: DDS (Detail Data Store) service for Data Vault processing
+type: application
+version: 1.0.1
+appVersion: "2026.01.17"

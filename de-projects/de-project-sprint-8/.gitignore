@@ -1,0 +1,25 @@
+# Конфиденциальные данные
+src/scripts/env.sh
+
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+venv/
+ENV/
+
+# Spark
+*.log
+metastore_db/
+spark-warehouse/
+
+# OS
+.DS_Store
+Thumbs.db

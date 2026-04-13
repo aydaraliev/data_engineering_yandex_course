@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            - name: FLASK_APP
+              value: {{ .Values.env.FLASK_APP | quote }}
+            - name: DEBUG
+              value: {{ .Values.env.DEBUG | quote }}
+            - name: KAFKA_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: KAFKA_HOST
+            - name: KAFKA_PORT
+              value: {{ .Values.env.KAFKA_PORT | quote }}
+            - name: KAFKA_CONSUMER_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: KAFKA_CONSUMER_USERNAME
+            - name: KAFKA_CONSUMER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: KAFKA_CONSUMER_PASSWORD
+            - name: KAFKA_CONSUMER_GROUP
+              value: {{ .Values.env.KAFKA_CONSUMER_GROUP | quote }}
+            - name: KAFKA_SOURCE_TOPIC
+              value: {{ .Values.env.KAFKA_SOURCE_TOPIC | quote }}
+            - name: PG_WAREHOUSE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: PG_WAREHOUSE_HOST
+            - name: PG_WAREHOUSE_PORT
+              value: {{ .Values.env.PG_WAREHOUSE_PORT | quote }}
+            - name: PG_WAREHOUSE_DBNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: PG_WAREHOUSE_DBNAME
+            - name: PG_WAREHOUSE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: PG_WAREHOUSE_USER
+            - name: PG_WAREHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: PG_WAREHOUSE_PASSWORD
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.service.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory | quote }}
+              cpu: {{ .Values.resources.requests.cpu | quote }}
+            limits:
+              memory: {{ .Values.resources.limits.memory | quote }}
+              cpu: {{ .Values.resources.limits.cpu | quote }}

@@ -12,6 +12,11 @@ __pycache__/
 venv/
 .env
 .env.local
+.env.*
+!.env.example
+credentials.env
+**/env.sh
+!**/env.sh.example
 
 # IDE
 .idea/

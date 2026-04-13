@@ -1,4 +1,4 @@
-# Final Sprint 5 Project: Courier Payout Data Mart
+# Sprint 5 Project: Courier Payout Data Mart
 
 ## Goal and Result
 

@@ -1,4 +1,4 @@
-# Data Lake Project: Geo Recommendations
+# Sprint 7 Project: Geo Recommendations Data Lake
 
 ## Overview
 
