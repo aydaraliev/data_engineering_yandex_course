@@ -18,7 +18,10 @@ Final project for the Data Engineer course. An ETL pipeline that loads transacti
 
 ## Project Layout
 
+Source snapshot: [`de-projects/de-project-final/`](../de-projects/de-project-final/)
+
 ```
+de-project-final/
 ├── docker-compose.yaml          # Docker configuration
 ├── credentials.env              # Credentials (kept in .gitignore)
 ├── src/
@@ -104,7 +107,7 @@ DAG 1: 1_load_staging                    DAG 2: 2_load_dwh
 
 ## Dashboard
 
-Dashboard screenshots and SQL queries for the visualisations live in [`src/img/`](src/img/).
+Dashboard screenshots and SQL queries for the visualisations live in [`de-projects/de-project-final/src/img/`](../de-projects/de-project-final/src/img/).
 
 ## Running
 

@@ -1,5 +1,7 @@
 # Sprint 7 Project: Geo Recommendations Data Lake
 
+Source snapshot: [`de-projects/de-project-sprint-7/`](../de-projects/de-project-sprint-7/)
+
 ## Overview
 
 A production-grade Data Lake solution that delivers geo-aware recommendations for users of a social network serving the Australian region. The project covers location tracking, per-city event analytics, and friend recommendations, implemented on Apache Spark, HDFS, and Apache Airflow.

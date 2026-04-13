@@ -1,5 +1,7 @@
 # Sprint 5 Project: Courier Payout Data Mart
 
+Source snapshot: [`de-projects/de-project-sprint-5/`](../de-projects/de-project-sprint-5/)
+
 ## Goal and Result
 
 Build a multi-layer DWH and a data mart `cdm.dm_courier_ledger` that collects courier payouts for the previous month: number of orders, total order and tip amounts, average rating, and the final payout.

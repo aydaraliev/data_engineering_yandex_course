@@ -1,5 +1,7 @@
 # Sprint 6 Project: Social Network Group Conversion Analysis
 
+Source snapshot: [`de-projects/de-project-sprint-6/`](../de-projects/de-project-sprint-6/)
+
 ## Project Description
 
 The project extends the existing analytical Data Vault warehouse with entities that support analysing user conversion inside social-network groups. The goal is to identify groups with a high conversion rate from joining to posting the first message, so that ad placements can be targeted more effectively.

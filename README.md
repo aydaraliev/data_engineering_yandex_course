@@ -2,7 +2,7 @@
 
 English-language overview and translations of the project work completed during the Yandex Practicum Data Engineer course. This is a single portfolio repository: the English translations and short descriptions live at the top level (`sprint-*/` and `final-*/`), while the original project source code — snapshotted from each GitHub repo — is embedded under [`de-projects/`](de-projects/) as example material. The source READMEs are in Russian; the translations and overviews here are in English.
 
-Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. Sprint 4 (data quality) exists only as an empty placeholder folder inside the sprint 3 repository and has no submitted project.
+Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. The course's sprint 4 (data quality) did not produce a standalone project.
 
 ## Project index
 

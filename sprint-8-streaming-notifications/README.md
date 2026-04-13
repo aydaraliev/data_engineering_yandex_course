@@ -1,5 +1,7 @@
 # Sprint 8 Project: Restaurant Subscription Streaming Service
 
+Source snapshot: [`de-projects/de-project-sprint-8/`](../de-projects/de-project-sprint-8/)
+
 A streaming service that processes restaurant subscriptions for a food-delivery aggregator.
 
 ## Description

@@ -1,5 +1,7 @@
 # Sprint 9 Project: Guest Tagging DWH Pipeline
 
+Source snapshot: [`de-projects/de-project-sprint-9/`](../de-projects/de-project-sprint-9/)
+
 A three-layer Data Warehouse that powers a guest tagging feature for a restaurant chain. Order data is ingested in real time through Kafka and persisted to PostgreSQL.
 
 ## Deployment Status

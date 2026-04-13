@@ -1,5 +1,7 @@
 # Sprint 3 Project: Customer Retention ETL
 
+Source snapshot: [`de-projects/de-project-sprint-3/`](../de-projects/de-project-sprint-3/)
+
 A single-DAG ETL pipeline that lifts order data from an HTTP report API into PostgreSQL and builds two marts:
 
 - `mart.f_sales` — a transactional sales fact table that models both shipped and refunded orders.
@@ -10,14 +12,14 @@ The whole pipeline runs in one Airflow DAG (`ETL_full_pipeline_alchemy`) and use
 ## Repository Layout
 
 ```
-data_engineering/
+de-project-sprint-3/
 ├── migrations/                       # SQL migration files (empty placeholder)
 ├── project_sprint_3/
 │   ├── ETL_full_pipeline_alchemy.py  # The full DAG
 │   └── db_connect.txt                # Connection notes
 ├── src/
 │   └── dags/                         # DAG placeholder directory
-└── README.md                         # Boilerplate course instructions
+└── README.md                         # Boilerplate course instructions (Russian)
 ```
 
 ## Local container
@@ -164,4 +166,4 @@ CREATE TABLE IF NOT EXISTS mart.f_customer_retention (
 
 ## Notes on Course Workflow
 
-The boilerplate README expects a repository named `de-project-sprint-3` that is linked automatically by the Practicum platform, with the usual `git add` / `commit` / `push` workflow on `main`. No separate `sprint 4` project is present in this workspace — the `sprint_4_data_quality` folder inside `data_engineering/` is empty.
+The boilerplate README expects a repository named `de-project-sprint-3` that is linked automatically by the Practicum platform, with the usual `git add` / `commit` / `push` workflow on `main`. No separate sprint 4 project was submitted — the course sprint on data quality produced no standalone deliverable.
