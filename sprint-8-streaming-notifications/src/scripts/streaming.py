@@ -4,48 +4,48 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, to_json, col, current_timestamp, unix_timestamp, lit, struct
 from pyspark.sql.types import StructType, StructField, StringType, LongType, IntegerType
 
-# Конфигурация Kafka (из переменных окружения)
+# Kafka configuration (from environment variables)
 KAFKA_BOOTSTRAP_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVER")
 KAFKA_USERNAME = os.getenv("KAFKA_USERNAME")
 KAFKA_PASSWORD = os.getenv("KAFKA_PASSWORD")
 KAFKA_TOPIC_IN = os.getenv("KAFKA_TOPIC_IN")
 KAFKA_TOPIC_OUT = os.getenv("KAFKA_TOPIC_OUT")
 
-# SSL конфигурация для Kafka (Java truststore)
-# Если не задано, используется системный truststore JVM
+# Kafka SSL configuration (Java truststore)
+# If not set, the default JVM truststore is used
 KAFKA_SSL_TRUSTSTORE_LOCATION = os.getenv("KAFKA_SSL_TRUSTSTORE_LOCATION", "")
 KAFKA_SSL_TRUSTSTORE_PASSWORD = os.getenv("KAFKA_SSL_TRUSTSTORE_PASSWORD", "")
 
-# Директория для checkpoint (для сохранения offset'ов между перезапусками)
+# Checkpoint directory (stores offsets across restarts)
 CHECKPOINT_LOCATION = os.getenv("CHECKPOINT_LOCATION", "/home/ajdaralijev/spark-checkpoints/restaurant-streaming")
 
-# Конфигурация PostgreSQL (источник данных о подписчиках)
+# PostgreSQL configuration (source of subscriber data)
 PG_SOURCE_HOST = os.getenv("PG_SOURCE_HOST")
 PG_SOURCE_PORT = os.getenv("PG_SOURCE_PORT", "6432")
 PG_SOURCE_DB = os.getenv("PG_SOURCE_DB")
 PG_SOURCE_USER = os.getenv("PG_SOURCE_USER")
 PG_SOURCE_PASSWORD = os.getenv("PG_SOURCE_PASSWORD")
 
-# Конфигурация PostgreSQL (назначение для записи фидбэка)
+# PostgreSQL configuration (destination for feedback writes)
 PG_DEST_HOST = os.getenv("PG_DEST_HOST")
 PG_DEST_PORT = os.getenv("PG_DEST_PORT", "5432")
 PG_DEST_DB = os.getenv("PG_DEST_DB")
 PG_DEST_USER = os.getenv("PG_DEST_USER")
 PG_DEST_PASSWORD = os.getenv("PG_DEST_PASSWORD")
 
-# Проверка обязательных переменных
+# Validate required variables
 required_kafka = [KAFKA_BOOTSTRAP_SERVER, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_TOPIC_IN, KAFKA_TOPIC_OUT]
 required_pg_source = [PG_SOURCE_HOST, PG_SOURCE_DB, PG_SOURCE_USER, PG_SOURCE_PASSWORD]
 required_pg_dest = [PG_DEST_HOST, PG_DEST_DB, PG_DEST_USER, PG_DEST_PASSWORD]
 
 if not all(required_kafka):
-    raise ValueError("Необходимо установить переменные окружения Kafka: KAFKA_BOOTSTRAP_SERVER, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_TOPIC_IN, KAFKA_TOPIC_OUT")
+    raise ValueError("The Kafka environment variables must be set: KAFKA_BOOTSTRAP_SERVER, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_TOPIC_IN, KAFKA_TOPIC_OUT")
 if not all(required_pg_source):
-    raise ValueError("Необходимо установить переменные окружения PostgreSQL источника: PG_SOURCE_HOST, PG_SOURCE_DB, PG_SOURCE_USER, PG_SOURCE_PASSWORD")
+    raise ValueError("The source PostgreSQL environment variables must be set: PG_SOURCE_HOST, PG_SOURCE_DB, PG_SOURCE_USER, PG_SOURCE_PASSWORD")
 if not all(required_pg_dest):
-    raise ValueError("Необходимо установить переменные окружения PostgreSQL назначения: PG_DEST_HOST, PG_DEST_DB, PG_DEST_USER, PG_DEST_PASSWORD")
+    raise ValueError("The destination PostgreSQL environment variables must be set: PG_DEST_HOST, PG_DEST_DB, PG_DEST_USER, PG_DEST_PASSWORD")
 
-# Необходимые библиотеки для интеграции Spark с Kafka и PostgreSQL
+# Libraries required to integrate Spark with Kafka and PostgreSQL
 spark_jars_packages = ",".join([
     "org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0",
     "org.postgresql:postgresql:42.4.0",
@@ -54,8 +54,8 @@ spark_jars_packages = ",".join([
 
 def get_kafka_options():
     """
-    Возвращает словарь опций для подключения к Kafka.
-    Включает SSL truststore если указан в переменных окружения.
+    Returns a dict of options for connecting to Kafka.
+    Adds the SSL truststore when it is specified in the environment variables.
     """
     options = {
         "kafka.bootstrap.servers": KAFKA_BOOTSTRAP_SERVER,
@@ -64,7 +64,7 @@ def get_kafka_options():
         "kafka.sasl.mechanism": "SCRAM-SHA-512",
     }
 
-    # Добавляем truststore если указан (для окружений где CA не в JVM)
+    # Add the truststore when specified (for environments where the CA is not in the JVM)
     if KAFKA_SSL_TRUSTSTORE_LOCATION and KAFKA_SSL_TRUSTSTORE_PASSWORD:
         options["kafka.ssl.truststore.location"] = KAFKA_SSL_TRUSTSTORE_LOCATION
         options["kafka.ssl.truststore.password"] = KAFKA_SSL_TRUSTSTORE_PASSWORD
@@ -72,7 +72,7 @@ def get_kafka_options():
     return options
 
 
-# Создаём Spark сессию
+# Create the Spark session
 spark = SparkSession.builder \
     .appName("RestaurantSubscribeStreamingService") \
     .config("spark.sql.session.timeZone", "UTC") \
@@ -81,10 +81,10 @@ spark = SparkSession.builder \
 
 spark.sparkContext.setLogLevel("WARN")
 
-# Получаем опции Kafka
+# Retrieve Kafka options
 kafka_options = get_kafka_options()
 
-# Читаем из топика Kafka сообщения с акциями от ресторанов
+# Read restaurant promotional campaign messages from the Kafka topic
 restaurant_read_stream_df = spark.readStream \
     .format("kafka") \
     .options(**kafka_options) \
@@ -93,7 +93,7 @@ restaurant_read_stream_df = spark.readStream \
     .option("failOnDataLoss", "false") \
     .load()
 
-# Определяем схему входного сообщения JSON
+# Define the schema of the incoming JSON message
 incoming_message_schema = StructType([
     StructField("restaurant_id", StringType(), True),
     StructField("adv_campaign_id", StringType(), True),
@@ -105,15 +105,15 @@ incoming_message_schema = StructType([
     StructField("datetime_created", LongType(), True),
 ])
 
-# Десериализуем JSON из поля value и преобразуем в DataFrame с колонками
+# Deserialize JSON from the value field and convert it into a DataFrame with named columns
 parsed_df = restaurant_read_stream_df \
     .select(
         from_json(col("value").cast("string"), incoming_message_schema).alias("parsed_value")
     ) \
     .select("parsed_value.*")
 
-# Фильтруем акции по времени: текущее время должно быть между началом и концом кампании
-# Получаем текущее время в секундах (Unix timestamp)
+# Filter campaigns by time: the current time must fall between the campaign start and end
+# Get the current time in seconds (Unix timestamp)
 current_timestamp_utc = unix_timestamp(current_timestamp())
 
 filtered_df = parsed_df.filter(
@@ -121,8 +121,8 @@ filtered_df = parsed_df.filter(
     (col("adv_campaign_datetime_end") > current_timestamp_utc)
 )
 
-# Читаем данные о подписчиках из PostgreSQL
-# БЕЗ show() и count() - они создают лишнюю нагрузку
+# Read subscriber data from PostgreSQL
+# No show() or count() calls - they add unnecessary overhead
 subscribers_restaurant_df = spark.read \
     .format("jdbc") \
     .option("url", f"jdbc:postgresql://{PG_SOURCE_HOST}:{PG_SOURCE_PORT}/{PG_SOURCE_DB}") \
@@ -132,31 +132,31 @@ subscribers_restaurant_df = spark.read \
     .option("password", PG_SOURCE_PASSWORD) \
     .load()
 
-# Кэшируем таблицу подписчиков - она используется в каждом микробатче
+# Cache the subscribers table - it is reused in every micro-batch
 subscribers_restaurant_df.cache()
 
-# Логируем только факт загрузки, без count()
-print("=== Загружена таблица подписчиков из PostgreSQL ===")
+# Log only the fact that the table was loaded, without count()
+print("=== Subscribers table loaded from PostgreSQL ===")
 
 
 def foreach_batch_function(df, epoch_id):
     """
-    Функция для обработки каждого микробатча стрима.
-    Записывает данные в PostgreSQL (с feedback) и Kafka (без feedback).
+    Function for processing each micro-batch of the stream.
+    Writes data to PostgreSQL (with feedback) and Kafka (without feedback).
 
-    checkpointLocation сохраняет offset'ы между перезапусками,
-    предотвращая повторную обработку сообщений.
+    checkpointLocation persists offsets across restarts,
+    preventing messages from being reprocessed.
     """
-    # Проверяем, есть ли данные в батче (без полного count)
+    # Check whether the batch has any data (without a full count)
     if df.rdd.isEmpty():
-        print(f"=== Batch {epoch_id}: пустой батч, пропускаем ===")
+        print(f"=== Batch {epoch_id}: empty batch, skipping ===")
         return
 
-    # Кэшируем DataFrame для повторного использования
+    # Cache the DataFrame for reuse
     df.persist()
 
     try:
-        # 1. Записываем в PostgreSQL для аналитики (с полем feedback)
+        # 1. Write to PostgreSQL for analytics (with the feedback column)
         df_with_feedback = df.withColumn("feedback", lit(None).cast(StringType()))
 
         pg_url = f"jdbc:postgresql://{PG_DEST_HOST}:{PG_DEST_PORT}/{PG_DEST_DB}"
@@ -171,7 +171,7 @@ def foreach_batch_function(df, epoch_id):
             .mode("append") \
             .save()
 
-        # 2. Отправляем в Kafka для push-уведомлений (без поля feedback)
+        # 2. Send to Kafka for push notifications (without the feedback column)
         df.select(
             to_json(struct(col("*"))).alias("value")
         ).write \
@@ -180,26 +180,26 @@ def foreach_batch_function(df, epoch_id):
             .option("topic", KAFKA_TOPIC_OUT) \
             .save()
 
-        # Логируем без count() - просто факт успешной записи
-        print(f"=== Batch {epoch_id}: данные записаны в PostgreSQL и Kafka ===")
+        # Log without count() - only the fact that the write succeeded
+        print(f"=== Batch {epoch_id}: data written to PostgreSQL and Kafka ===")
 
     except Exception as e:
-        print(f"=== Batch {epoch_id}: ОШИБКА - {str(e)} ===")
-        raise  # Пробрасываем исключение для retry механизма Spark
+        print(f"=== Batch {epoch_id}: ERROR - {str(e)} ===")
+        raise  # Propagate the exception to trigger Spark's retry mechanism
 
     finally:
-        # Освобождаем кэш
+        # Release the cache
         df.unpersist()
 
 
-# Джойним данные из Kafka с подписчиками из PostgreSQL по restaurant_id
-# Добавляем колонку trigger_datetime_created с текущим временем
+# Join data from Kafka with subscribers from PostgreSQL on restaurant_id
+# Add the trigger_datetime_created column with the current time
 result_df = filtered_df.join(
     subscribers_restaurant_df,
     filtered_df.restaurant_id == subscribers_restaurant_df.restaurant_id,
     "inner"
 ).select(
-    # Выбираем колонки без дублирования restaurant_id
+    # Select columns without duplicating restaurant_id
     filtered_df.restaurant_id,
     filtered_df.adv_campaign_id,
     filtered_df.adv_campaign_content,
@@ -209,18 +209,18 @@ result_df = filtered_df.join(
     filtered_df.adv_campaign_datetime_end,
     filtered_df.datetime_created,
     subscribers_restaurant_df.client_id,
-    # cast к IntegerType для соответствия int4 в PostgreSQL
+    # Cast to IntegerType to match int4 in PostgreSQL
     unix_timestamp(current_timestamp()).cast(IntegerType()).alias("trigger_datetime_created")
 )
 
-# Запускаем стрим с записью в PostgreSQL через foreachBatch
-# ИСПРАВЛЕНО: добавлен checkpointLocation для сохранения offset'ов
+# Launch the stream that writes to PostgreSQL via foreachBatch
+# FIXED: added checkpointLocation to persist offsets
 query = result_df.writeStream \
     .outputMode("append") \
     .foreachBatch(foreach_batch_function) \
     .option("checkpointLocation", CHECKPOINT_LOCATION) \
     .start()
 
-print(f"=== Стрим запущен, checkpoint: {CHECKPOINT_LOCATION} ===")
+print(f"=== Stream started, checkpoint: {CHECKPOINT_LOCATION} ===")
 
 query.awaitTermination()

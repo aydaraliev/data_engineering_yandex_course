@@ -74,5 +74,5 @@ class KafkaConsumer:
         return json.loads(val)
 
     def commit(self) -> None:
-        """Фиксирует текущий offset. Вызывать после успешной обработки сообщения."""
+        """Commit the current offset. Call this after the message has been processed successfully."""
         self.c.commit()

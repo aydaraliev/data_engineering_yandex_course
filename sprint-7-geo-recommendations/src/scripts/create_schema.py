@@ -1,7 +1,7 @@
 """
-Скрипт для создания структуры Data Lake в HDFS на удаленном сервере.
-Создает директории согласно архитектуре из README.md.
-Подключается к удаленному серверу через SSH и выполняет команды внутри Docker-контейнера.
+Script for creating the Data Lake structure in HDFS on the remote server.
+Creates directories according to the architecture described in README.md.
+Connects to the remote server over SSH and runs commands inside the Docker container.
 """
 
 import subprocess
@@ -9,7 +9,7 @@ import logging
 import os
 from typing import List, Tuple
 
-# Настройка логирования
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -18,25 +18,25 @@ logger = logging.getLogger(__name__)
 
 
 class HDFSSchemaCreator:
-    """Класс для создания структуры Data Lake в HDFS на удаленном сервере."""
+    """Class for creating the Data Lake structure in HDFS on the remote server."""
 
     def __init__(
         self,
-        base_path: str = "/user/ajdaral1ev/project/geo",
-        remote_host: str = "158.160.218.207",
-        remote_user: str = "yc-user",
+        base_path: str = "/user/student/project/geo",
+        remote_host: str = "10.0.0.11",
+        remote_user: str = "cluster-user",
         ssh_key_path: str = "~/.ssh/ssh_private_key",
         container_name: str = None
     ):
         """
-        Инициализация создателя схемы.
+        Initialize the schema creator.
 
         Args:
-            base_path: Базовый путь для проекта в HDFS
-            remote_host: IP-адрес удаленного сервера
-            remote_user: Пользователь на удаленном сервере
-            ssh_key_path: Путь к SSH-ключу
-            container_name: Имя Docker-контейнера (если None - определится автоматически)
+            base_path: Base HDFS path for the project
+            remote_host: IP address of the remote server
+            remote_user: User on the remote server
+            ssh_key_path: Path to the SSH key
+            container_name: Docker container name (if None - detected automatically)
         """
         self.base_path = base_path
         self.remote_host = remote_host
@@ -47,45 +47,45 @@ class HDFSSchemaCreator:
 
     def _define_directories(self) -> List[Tuple[str, str]]:
         """
-        Определяет список директорий для создания.
+        Defines the list of directories to create.
 
         Returns:
-            Список кортежей (путь, описание)
+            List of tuples (path, description)
         """
         return [
             # RAW Layer
-            (f"{self.base_path}/raw", "RAW Layer - сырые данные"),
-            (f"{self.base_path}/raw/events", "События с координатами"),
-            (f"{self.base_path}/raw/geo_csv", "Справочник городов Австралии"),
+            (f"{self.base_path}/raw", "RAW Layer - raw data"),
+            (f"{self.base_path}/raw/events", "Events with coordinates"),
+            (f"{self.base_path}/raw/geo_csv", "Australian cities dictionary"),
 
             # ODS Layer
-            (f"{self.base_path}/ods", "ODS Layer - очищенные данные"),
-            (f"{self.base_path}/ods/events", "Очищенные события"),
-            (f"{self.base_path}/ods/geo", "Очищенные координаты городов"),
+            (f"{self.base_path}/ods", "ODS Layer - cleaned data"),
+            (f"{self.base_path}/ods/events", "Cleaned events"),
+            (f"{self.base_path}/ods/geo", "Cleaned city coordinates"),
 
             # DDS Layer
-            (f"{self.base_path}/dds", "DDS Layer - интегрированные данные"),
-            (f"{self.base_path}/dds/users", "Профили пользователей с домашним регионом"),
-            (f"{self.base_path}/dds/cities", "Справочник городов"),
-            (f"{self.base_path}/dds/events_enriched", "События с гео-данными"),
+            (f"{self.base_path}/dds", "DDS Layer - integrated data"),
+            (f"{self.base_path}/dds/users", "User profiles with home region"),
+            (f"{self.base_path}/dds/cities", "City dictionary"),
+            (f"{self.base_path}/dds/events_enriched", "Events with geo data"),
 
             # Analytics/Sandbox Layer
-            (f"{self.base_path}/analytics", "Analytics Layer - песочница для экспериментов"),
-            (f"{self.base_path}/analytics/temp", "Временные таблицы"),
-            (f"{self.base_path}/analytics/samples", "Выборки для тестирования"),
+            (f"{self.base_path}/analytics", "Analytics Layer - sandbox for experiments"),
+            (f"{self.base_path}/analytics/temp", "Temporary tables"),
+            (f"{self.base_path}/analytics/samples", "Samples for testing"),
 
             # MART Layer
-            (f"{self.base_path}/mart", "MART Layer - витрины данных"),
-            (f"{self.base_path}/mart/friend_recommendations", "Рекомендации друзей"),
-            (f"{self.base_path}/mart/user_geo_report", "Гео-аналитика пользователей"),
+            (f"{self.base_path}/mart", "MART Layer - data marts"),
+            (f"{self.base_path}/mart/friend_recommendations", "Friend recommendations"),
+            (f"{self.base_path}/mart/user_geo_report", "User geo analytics"),
         ]
 
     def _get_containers_list(self) -> List[str]:
         """
-        Получает список всех запущенных Docker-контейнеров.
+        Returns the list of all running Docker containers.
 
         Returns:
-            Список имен контейнеров
+            List of container names
         """
         ssh_command = [
             'ssh',
@@ -110,68 +110,68 @@ class HDFSSchemaCreator:
                 return containers
             return []
         except Exception as e:
-            logger.error(f"Ошибка получения списка контейнеров: {e}")
+            logger.error(f"Error fetching container list: {e}")
             return []
 
     def _detect_container_name(self) -> str:
         """
-        Автоматически определяет имя Docker-контейнера с HDFS namenode.
+        Automatically detects the Docker container name with HDFS namenode.
 
         Returns:
-            Имя контейнера или None, если не найден
+            Container name or None if not found
         """
-        logger.info("Получение списка запущенных контейнеров...")
+        logger.info("Fetching the list of running containers...")
         containers = self._get_containers_list()
 
         if not containers:
-            logger.error("Не найдено запущенных контейнеров")
+            logger.error("No running containers found")
             return None
 
-        logger.info(f"Найдено контейнеров: {len(containers)}")
+        logger.info(f"Containers found: {len(containers)}")
         for container in containers:
             logger.info(f"  - {container}")
 
-        # Ищем контейнер с ajdara1iev в имени
+        # Look for a container with student in the name
         for container in containers:
-            if 'ajdara1iev' in container.lower():
-                logger.info(f"✓ Выбран контейнер с HDFS: {container}")
+            if 'student' in container.lower():
+                logger.info(f"Selected HDFS container: {container}")
                 return container
 
-        # Если не нашли ajdara1iev, ищем namenode
+        # If student was not found, look for namenode
         for container in containers:
             if 'namenode' in container.lower():
-                logger.warning(f"Контейнер с 'ajdara1iev' не найден, используется namenode: {container}")
+                logger.warning(f"Container with 'student' not found, using namenode: {container}")
                 return container
 
-        # Если не нашли ни того, ни другого, берем первый контейнер
+        # If neither was found, take the first container
         if containers:
-            logger.warning(f"Контейнер с 'ajdara1iev' или 'namenode' не найден, используется первый: {containers[0]}")
+            logger.warning(f"Container with 'student' or 'namenode' not found, using the first one: {containers[0]}")
             return containers[0]
 
-        logger.error("Не удалось определить контейнер")
+        logger.error("Failed to detect the container")
         return None
 
     def _run_remote_hdfs_command(self, hdfs_command: str) -> Tuple[bool, str]:
         """
-        Выполняет команду HDFS на удаленном сервере через SSH и Docker.
+        Runs an HDFS command on the remote server via SSH and Docker.
 
         Args:
-            hdfs_command: HDFS команда для выполнения
+            hdfs_command: HDFS command to execute
 
         Returns:
-            Кортеж (успех, вывод)
+            Tuple (success, output)
         """
-        # Определяем имя контейнера, если не задано
+        # Detect container name if not provided
         if self.container_name is None:
             self.container_name = self._detect_container_name()
             if self.container_name is None:
-                logger.error("Не удалось определить имя контейнера")
+                logger.error("Failed to detect the container name")
                 return False, "Container not found"
 
-        # Команда для выполнения HDFS команды внутри Docker-контейнера
+        # Command to run the HDFS command inside the Docker container
         docker_command = f"docker exec {self.container_name} {hdfs_command}"
 
-        # SSH команда
+        # SSH command
         ssh_command = [
             'ssh',
             '-i', self.ssh_key_path,
@@ -192,60 +192,60 @@ class HDFSSchemaCreator:
             )
             return result.returncode == 0, result.stdout + result.stderr
         except subprocess.TimeoutExpired:
-            logger.error("Таймаут выполнения команды")
+            logger.error("Command execution timed out")
             return False, "Timeout"
         except Exception as e:
-            logger.error(f"Ошибка выполнения команды: {e}")
+            logger.error(f"Command execution error: {e}")
             return False, str(e)
 
     def _directory_exists(self, path: str) -> bool:
         """
-        Проверяет существование директории в HDFS.
+        Checks whether a directory exists in HDFS.
 
         Args:
-            path: Путь к директории
+            path: Directory path
 
         Returns:
-            True, если директория существует
+            True if the directory exists
         """
         success, _ = self._run_remote_hdfs_command(f'hdfs dfs -test -d {path}')
         return success
 
     def create_directory(self, path: str, description: str) -> bool:
         """
-        Создает директорию в HDFS.
+        Creates a directory in HDFS.
 
         Args:
-            path: Путь к директории
-            description: Описание директории
+            path: Directory path
+            description: Directory description
 
         Returns:
-            True, если директория создана успешно
+            True if the directory is created successfully
         """
         if self._directory_exists(path):
-            logger.info(f"Директория уже существует: {path}")
+            logger.info(f"Directory already exists: {path}")
             return True
 
-        logger.info(f"Создание директории: {path} ({description})")
+        logger.info(f"Creating directory: {path} ({description})")
         success, output = self._run_remote_hdfs_command(f'hdfs dfs -mkdir -p {path}')
 
         if success:
-            logger.info(f"✓ Создана: {path}")
+            logger.info(f"Created: {path}")
             return True
         else:
-            logger.error(f"✗ Ошибка создания {path}: {output}")
+            logger.error(f"Failed to create {path}: {output}")
             return False
 
     def create_schema(self) -> bool:
         """
-        Создает всю структуру Data Lake.
+        Creates the entire Data Lake structure.
 
         Returns:
-            True, если все директории созданы успешно
+            True if all directories are created successfully
         """
         logger.info("=" * 70)
-        logger.info("Начало создания структуры Data Lake")
-        logger.info(f"Базовый путь: {self.base_path}")
+        logger.info("Starting Data Lake structure creation")
+        logger.info(f"Base path: {self.base_path}")
         logger.info("=" * 70)
 
         success_count = 0
@@ -258,24 +258,24 @@ class HDFSSchemaCreator:
                 fail_count += 1
 
         logger.info("=" * 70)
-        logger.info(f"Завершено: {success_count} успешно, {fail_count} ошибок")
+        logger.info(f"Finished: {success_count} succeeded, {fail_count} failed")
         logger.info("=" * 70)
 
         return fail_count == 0
 
     def verify_schema(self) -> bool:
         """
-        Проверяет созданную структуру.
+        Verifies the created structure.
 
         Returns:
-            True, если все директории существуют
+            True if all directories exist
         """
-        logger.info("Проверка созданной структуры...")
+        logger.info("Verifying the created structure...")
 
         all_exist = True
         for path, description in self.directories:
             exists = self._directory_exists(path)
-            status = "✓" if exists else "✗"
+            status = "OK" if exists else "FAIL"
             logger.info(f"{status} {path}")
 
             if not exists:
@@ -284,52 +284,52 @@ class HDFSSchemaCreator:
         return all_exist
 
     def show_structure(self) -> None:
-        """Отображает структуру Data Lake."""
-        logger.info("\nПланируемая структура Data Lake:\n")
+        """Displays the Data Lake structure."""
+        logger.info("\nPlanned Data Lake structure:\n")
 
         for path, description in self.directories:
             level = path.replace(self.base_path, "").count("/")
             indent = "  " * (level - 1)
             folder_name = path.split("/")[-1]
-            logger.info(f"{indent}├── {folder_name}/ — {description}")
+            logger.info(f"{indent}  {folder_name}/ - {description}")
 
 
 def main():
-    """Основная функция."""
-    logger.info("Подключение к удаленному серверу yc-user@158.160.218.207")
-    logger.info("Пользователь HDFS: /user/ajdaral1ev")
+    """Main entry point."""
+    logger.info("Connecting to remote server cluster-user@10.0.0.11")
+    logger.info("HDFS user: /user/student")
 
-    # Создание экземпляра класса
+    # Create class instance
     creator = HDFSSchemaCreator(
-        base_path="/user/ajdaral1ev/project/geo",
-        remote_host="158.160.218.207",
-        remote_user="yc-user",
+        base_path="/user/student/project/geo",
+        remote_host="10.0.0.11",
+        remote_user="cluster-user",
         ssh_key_path="~/.ssh/ssh_private_key",
-        container_name=None  # Автоматическое определение
+        container_name=None  # Automatic detection
     )
 
-    # Проверка SSH-ключа
+    # Check SSH key
     if not os.path.exists(creator.ssh_key_path):
-        logger.error(f"SSH-ключ не найден: {creator.ssh_key_path}")
+        logger.error(f"SSH key not found: {creator.ssh_key_path}")
         return 1
 
-    # Отображение планируемой структуры
+    # Display the planned structure
     creator.show_structure()
 
-    # Создание структуры
+    # Create the structure
     success = creator.create_schema()
 
-    # Проверка результата
+    # Check the result
     if success:
-        logger.info("\n✓ Структура Data Lake успешно создана!")
+        logger.info("\nData Lake structure created successfully!")
 
-        # Верификация
+        # Verification
         if creator.verify_schema():
-            logger.info("✓ Верификация пройдена успешно!")
+            logger.info("Verification passed successfully!")
         else:
-            logger.warning("⚠ Некоторые директории не найдены")
+            logger.warning("Some directories were not found")
     else:
-        logger.error("✗ Ошибки при создании структуры Data Lake")
+        logger.error("Errors occurred while creating the Data Lake structure")
         return 1
 
     return 0

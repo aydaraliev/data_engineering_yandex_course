@@ -1,10 +1,10 @@
--- Создание таблицы bonussystem_users
+-- Create the bonussystem_users table
 DROP TABLE IF EXISTS stg.bonussystem_users CASCADE;
 DROP TABLE IF EXISTS stg.bonussystem_ranks CASCADE;
 DROP TABLE IF EXISTS stg.bonussystem_events CASCADE;
 DROP INDEX IF EXISTS stg.idx_bonussystem_events__event_ts;
 
--- Создание таблицы bonussystem_users
+-- Create the bonussystem_users table
 CREATE TABLE stg.bonussystem_users
 (
     id            integer NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE stg.bonussystem_users
     CONSTRAINT pk_bonussystem_users PRIMARY KEY (id)
 );
 
--- Создание таблицы bonussystem_ranks
+-- Create the bonussystem_ranks table
 CREATE TABLE stg.bonussystem_ranks
 (
     id                    integer        NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE stg.bonussystem_ranks
     CONSTRAINT pk_bonussystem_ranks PRIMARY KEY (id)
 );
 
--- Создание таблицы bonussystem_events
+-- Create the bonussystem_events table
 CREATE TABLE stg.bonussystem_events
 (
     id          integer   NOT NULL,
@@ -32,5 +32,5 @@ CREATE TABLE stg.bonussystem_events
     CONSTRAINT pk_bonussystem_events PRIMARY KEY (id)
 );
 
--- Создание индекса для таблицы bonussystem_events
+-- Create an index on the bonussystem_events table
 CREATE INDEX idx_bonussystem_events__event_ts ON stg.bonussystem_events (event_ts);

@@ -1,7 +1,7 @@
--- DDS: сущности курьеров и доставок
+-- DDS: courier and delivery entities
 CREATE SCHEMA IF NOT EXISTS dds;
 
--- Справочник курьеров (SCD2)
+-- Courier dimension (SCD2)
 CREATE TABLE IF NOT EXISTS dds.dm_couriers
 (
     id           SERIAL PRIMARY KEY,
@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS dds.dm_couriers
     CONSTRAINT ck_dm_couriers_period CHECK (active_from < active_to)
 );
 
--- Таблица доставок/рейсов, связывающая заказ и курьера
+-- Deliveries/trips table that links an order to a courier
 CREATE TABLE IF NOT EXISTS dds.dm_deliveries
 (
     id          SERIAL PRIMARY KEY,
-    delivery_id text UNIQUE,  -- business key, если есть
+    delivery_id text UNIQUE,  -- business key, if present
     order_id    INTEGER        NOT NULL REFERENCES dds.dm_orders (id),
     courier_id  INTEGER        NOT NULL REFERENCES dds.dm_couriers (id),
     delivery_ts timestamp      NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS dds.dm_deliveries
     CONSTRAINT ck_dm_deliveries_rate CHECK (rate IS NULL OR (rate >= 0 AND rate <= 5))
 );
 
--- Добавляем ссылку на курьера в заказ, если отсутствует
+-- Add a courier reference to the order if it is missing
 ALTER TABLE IF EXISTS dds.dm_orders
     ADD COLUMN IF NOT EXISTS courier_id INTEGER;
 

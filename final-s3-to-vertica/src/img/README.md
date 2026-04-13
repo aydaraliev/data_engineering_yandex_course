@@ -1,27 +1,35 @@
-# Дашборд Global Metrics
+# Global Metrics Dashboard
 
-Визуализация агрегированных метрик транзакций из витрины `VT251126648744__DWH.global_metrics`.
+Visualization of aggregated transaction metrics from the `VT251126648744__DWH.global_metrics` mart.
 
 ![Dashboard](metabase.png)
 
-## Исключённые данные
+> The screenshot is from the original Metabase instance and keeps the Russian tile titles from the submission. English translations (matching the SQL queries below):
+> - *Сумма переводов по валютам* → Transfer amounts by currency
+> - *Уникальных пользователей* → Unique users
+> - *Среднее транзакций на пользователя* → Average transactions per user
+> - *Количество транзакций* → Transaction count
+> - *Общий оборот компании* → Total company turnover
+> - *Дата* → Date, *Валюта* → Currency (dashboard filters)
 
-Дата **2022-10-01** исключена из всех визуализаций.
+## Excluded Data
 
-**Причина:** аномальные данные — все ~17 000 транзакций были совершены только 2 уникальными аккаунтами, что даёт нереалистичное значение `avg_transactions_per_account` ≈ 8 000 вместо нормального ≈ 1.
+The date **2022-10-01** is excluded from all visualizations.
 
-| Дата       | Транзакций | Уникальных аккаунтов | Среднее на аккаунт |
-|:-----------|:-----------|:---------------------|:-------------------|
-| 2022-10-01 | 17 708     | 2                    | 8 854              |
-| 2022-10-05 | 17 917     | 17 389               | 1.03               |
+**Reason:** anomalous data — all ~17,000 transactions were made by only 2 unique accounts, producing an unrealistic `avg_transactions_per_account` value of ≈ 8,000 instead of the normal ≈ 1.
 
-Вероятная причина: тестовые или системные операции в первый день работы системы.
+| Date       | Transactions | Unique accounts | Average per account |
+|:-----------|:-------------|:----------------|:--------------------|
+| 2022-10-01 | 17,708       | 2               | 8,854               |
+| 2022-10-05 | 17,917       | 17,389          | 1.03                |
+
+Likely cause: test or system operations on the first day the system was live.
 
 ---
 
-## SQL-запросы для визуализаций
+## SQL Queries for the Visualizations
 
-### Сумма переводов по валютам
+### Transfer amounts by currency
 
 ```sql
 SELECT
@@ -35,7 +43,7 @@ WHERE date_update > '2022-10-01'
 ORDER BY date_update
 ```
 
-### Среднее транзакций на пользователя
+### Average transactions per user
 
 ```sql
 SELECT
@@ -49,7 +57,7 @@ WHERE date_update > '2022-10-01'
 ORDER BY date_update
 ```
 
-### Уникальные пользователи
+### Unique users
 
 ```sql
 SELECT
@@ -63,7 +71,7 @@ WHERE date_update > '2022-10-01'
 ORDER BY date_update
 ```
 
-### Общий оборот компании
+### Total company turnover
 
 ```sql
 SELECT
@@ -74,7 +82,7 @@ WHERE date_update > '2022-10-01'
   AND {{currency_filter}}
 ```
 
-### Количество транзакций
+### Transaction count
 
 ```sql
 SELECT
@@ -90,7 +98,7 @@ ORDER BY date_update
 
 ---
 
-## Переменные Metabase
+## Metabase Variables
 
-- `{{date_filter}}` — Field Filter → `date_update`
-- `{{currency_filter}}` — Field Filter → `currency_from`
+- `{{date_filter}}` — Field Filter -> `date_update`
+- `{{currency_filter}}` — Field Filter -> `currency_from`

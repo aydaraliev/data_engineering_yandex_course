@@ -5,9 +5,9 @@ from typing import List
 from lib.pg import PgConnect
 
 
-# Вспомогательная функция для генерации UUID из строки
+# Helper function for generating a UUID from a string
 def generate_uuid(value: str) -> uuid.UUID:
-    """Генерирует детерминированный UUID на основе MD5-хеша строки."""
+    """Generate a deterministic UUID from the MD5 hash of the input string."""
     return uuid.UUID(hashlib.md5(value.encode()).hexdigest())
 
 
@@ -17,7 +17,7 @@ class CdmRepository:
         self._ensure_processed_orders_table()
 
     def _ensure_processed_orders_table(self) -> None:
-        """Создаёт таблицу для отслеживания обработанных заказов, если её нет."""
+        """Create the table that tracks processed orders if it does not already exist."""
         with self._db.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -28,7 +28,7 @@ class CdmRepository:
                 """)
 
     def is_order_processed(self, order_id: int) -> bool:
-        """Проверяет, был ли заказ уже обработан."""
+        """Check whether the order has already been processed."""
         with self._db.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -37,7 +37,7 @@ class CdmRepository:
                 return cur.fetchone() is not None
 
     def mark_order_processed(self, order_id: int) -> None:
-        """Помечает заказ как обработанный."""
+        """Mark the order as processed."""
         with self._db.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -51,8 +51,8 @@ class CdmRepository:
                                      product_id: uuid.UUID,
                                      product_name: str) -> None:
         """
-        Обновляет или вставляет счётчик заказов продукта для пользователя.
-        При конфликте (user_id, product_id) увеличивает order_cnt на 1.
+        Upsert the product order counter for the user.
+        On conflict (user_id, product_id) increment order_cnt by 1.
         """
         with self._db.connection() as conn:
             with conn.cursor() as cur:
@@ -74,8 +74,8 @@ class CdmRepository:
                                       category_id: uuid.UUID,
                                       category_name: str) -> None:
         """
-        Обновляет или вставляет счётчик заказов категории для пользователя.
-        При конфликте (user_id, category_id) увеличивает order_cnt на 1.
+        Upsert the category order counter for the user.
+        On conflict (user_id, category_id) increment order_cnt by 1.
         """
         with self._db.connection() as conn:
             with conn.cursor() as cur:

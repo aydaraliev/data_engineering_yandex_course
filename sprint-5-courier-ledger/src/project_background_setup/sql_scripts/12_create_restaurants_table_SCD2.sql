@@ -1,4 +1,4 @@
--- Создание таблицы dm_restaurants в схеме dds с поддержкой SCD 2
+-- Create the dm_restaurants table in the dds schema with SCD 2 support
 CREATE TABLE IF NOT EXISTS dds.dm_restaurants
 (
     id              SERIAL PRIMARY KEY,

@@ -1,42 +1,42 @@
-# Развёртывание DAG в Airflow
+# Deploying the DAG in Airflow
 
-## Предварительные требования
+## Prerequisites
 
-### 1. Установленные компоненты
+### 1. Installed components
 - Apache Airflow 2.0+
 - Python 3.7+
 - Apache Spark 3.3+
-- Провайдер: `apache-airflow-providers-apache-spark`
+- Provider: `apache-airflow-providers-apache-spark`
 
-### 2. Установка провайдера Spark (если не установлен)
+### 2. Installing the Spark provider (if missing)
 ```bash
 pip install apache-airflow-providers-apache-spark
 ```
 
-### 3. Структура проекта
+### 3. Project structure
 ```
 /lessons/
-├── dags/
-│   └── geo_marts_dag.py          # DAG файл
-└── scripts/
-    ├── user_geo_mart.py          # Скрипт витрины пользователей
-    ├── zone_mart.py              # Скрипт витрины зон
-    ├── friend_recommendations.py # Скрипт рекомендаций
-    └── geo_utils.py              # Утилиты (Haversine, etc.)
+dags/
+    geo_marts_dag.py          # DAG file
+scripts/
+    user_geo_mart.py          # User mart script
+    zone_mart.py              # Zone mart script
+    friend_recommendations.py # Recommendations script
+    geo_utils.py              # Utilities (Haversine, etc.)
 ```
 
-## Шаг 1: Подготовка скриптов
+## Step 1: Prepare the scripts
 
-### 1.1. Копирование скриптов на сервер
+### 1.1. Copy the scripts onto the server
 
 ```bash
-# Если скрипты в локальной директории
+# If scripts are in a local directory
 LOCAL_SCRIPTS_DIR="src/scripts"
-REMOTE_USER="yc-user"
-REMOTE_HOST="158.160.218.207"
+REMOTE_USER="cluster-user"
+REMOTE_HOST="10.0.0.11"
 SSH_KEY="~/.ssh/ssh_private_key"
 
-# Копирование на сервер
+# Copy to the server
 scp -i $SSH_KEY \
     $LOCAL_SCRIPTS_DIR/user_geo_mart.py \
     $LOCAL_SCRIPTS_DIR/zone_mart.py \
@@ -45,39 +45,39 @@ scp -i $SSH_KEY \
     $REMOTE_USER@$REMOTE_HOST:/lessons/scripts/
 ```
 
-### 1.2. Проверка доступности скриптов
+### 1.2. Verify script availability
 
 ```bash
-# Подключиться к серверу
+# Connect to the server
 ssh -i $SSH_KEY $REMOTE_USER@$REMOTE_HOST
 
-# Проверить наличие файлов
+# Check for files
 ls -la /lessons/scripts/
 
-# Ожидаемый вывод:
+# Expected output:
 # user_geo_mart.py
 # zone_mart.py
 # friend_recommendations.py
 # geo_utils.py
 ```
 
-### 1.3. Проверка синтаксиса скриптов
+### 1.3. Validate script syntax
 
 ```bash
-# Проверка Python синтаксиса
+# Python syntax check
 python3 /lessons/scripts/user_geo_mart.py --help
 python3 /lessons/scripts/zone_mart.py --help
 python3 /lessons/scripts/friend_recommendations.py --help
 ```
 
-## Шаг 2: Настройка Airflow Connection
+## Step 2: Configure the Airflow Connection
 
-### 2.1. Через Airflow UI
+### 2.1. Via the Airflow UI
 
-1. Откройте Airflow Web UI (обычно http://localhost:8080)
-2. Перейдите: **Admin → Connections**
-3. Нажмите кнопку **"+"** (Add Connection)
-4. Заполните форму:
+1. Open the Airflow Web UI (usually http://localhost:8080)
+2. Navigate to **Admin -> Connections**
+3. Click the **"+"** button (Add Connection)
+4. Fill out the form:
 
 ```
 Connection Id: yarn_spark
@@ -87,9 +87,9 @@ Port: 8032
 Extra: {"queue": "default"}
 ```
 
-5. Нажмите **Save**
+5. Click **Save**
 
-### 2.2. Через Airflow CLI
+### 2.2. Via the Airflow CLI
 
 ```bash
 airflow connections add yarn_spark \
@@ -99,80 +99,80 @@ airflow connections add yarn_spark \
     --conn-extra '{"queue": "default"}'
 ```
 
-### 2.3. Через переменные окружения
+### 2.3. Via environment variables
 
 ```bash
 export AIRFLOW_CONN_YARN_SPARK='spark://yarn://master-host:8032'
 ```
 
-## Шаг 3: Развёртывание DAG
+## Step 3: Deploy the DAG
 
-### 3.1. Копирование DAG файла
+### 3.1. Copy the DAG file
 
 ```bash
-# Определите путь к папке dags в Airflow
+# Determine the Airflow dags folder path
 AIRFLOW_DAGS_DIR=$(airflow config get-value core dags_folder)
 
-# Или используйте стандартный путь
-AIRFLOW_DAGS_DIR="/opt/airflow/dags"  # Или ~/airflow/dags
+# Or use the standard path
+AIRFLOW_DAGS_DIR="/opt/airflow/dags"  # Or ~/airflow/dags
 
-# Копирование DAG
+# Copy the DAG
 cp dags/geo_marts_dag.py $AIRFLOW_DAGS_DIR/
 
-# Проверка
+# Verify
 ls -la $AIRFLOW_DAGS_DIR/geo_marts_dag.py
 ```
 
-### 3.2. Альтернатива: создание символической ссылки
+### 3.2. Alternative: create a symbolic link
 
 ```bash
 ln -s /path/to/project/dags/geo_marts_dag.py $AIRFLOW_DAGS_DIR/geo_marts_dag.py
 ```
 
-## Шаг 4: Валидация DAG
+## Step 4: Validate the DAG
 
-### 4.1. Запуск валидационного скрипта
+### 4.1. Run the validation script
 
 ```bash
 cd dags/
 python3 validate_dag.py
 ```
 
-Ожидаемый вывод:
+Expected output:
 ```
 ======================================================================
-ВАЛИДАЦИЯ DAG: geo_marts_dag.py
+DAG VALIDATION: geo_marts_dag.py
 ======================================================================
 
-1. Проверка файла...
-   ✓ Файл существует: /path/to/geo_marts_dag.py
+1. Checking the file...
+   File exists: /path/to/geo_marts_dag.py
 
-2. Проверка синтаксиса Python...
-   ✓ Синтаксис Python корректен
+2. Checking Python syntax...
+   Python syntax is correct
 
-3. Импорт DAG...
-   ✓ DAG успешно импортирован
+3. Importing the DAG...
+   DAG imported successfully
 
-4. Проверка атрибутов DAG...
-   ✓ DAG ID: geo_marts_update
-   ✓ Schedule: 0 0 * * *
-   ✓ Default args: 7 параметров
+4. Checking DAG attributes...
+   DAG ID: geo_marts_update
+   Schedule: 0 0 * * *
+   Default args: 7 parameters
 
-5. Проверка задач...
-   ✓ Количество задач: 5
-   ✓ Задача найдена: start
-   ✓ Задача найдена: update_user_geo_report
-   ✓ Задача найдена: update_zone_mart
-   ✓ Задача найдена: update_friend_recommendations
-   ✓ Задача найдена: end
+5. Checking tasks...
+   Number of tasks: 5
+   Task found: start
+   Task found: update_user_geo_report
+   Task found: update_zone_mart
+   Task found: update_friend_recommendations
+   Task found: end
 
-6. Проверка зависимостей...
-   ✓ Зависимость: start → update_user_geo_report
-   ✓ Зависимость: update_user_geo_report → update_zone_mart
-   ✓ Зависимость: update_zone_mart → update_friend_recommendations
-   ✓ Зависимость: update_friend_recommendations → end
+6. Checking dependencies...
+   Dependency: start -> update_user_geo_report
+   Dependency: update_user_geo_report -> update_zone_mart
+   Dependency: update_zone_mart -> update_friend_recommendations
+   Dependency: update_friend_recommendations -> end
 
-7. Проверка типов операторов...
+7. Checking operator types...
    - start: PythonOperator
    - update_user_geo_report: SparkSubmitOperator
      Application: /lessons/scripts/user_geo_mart.py
@@ -185,236 +185,236 @@ python3 validate_dag.py
      Py files: /lessons/scripts/geo_utils.py
    - end: PythonOperator
 
-8. Проверка на циклические зависимости...
-   ✓ Циклические зависимости отсутствуют
+8. Checking for cyclic dependencies...
+   No cyclic dependencies
 
 ======================================================================
-ИТОГИ ВАЛИДАЦИИ
+VALIDATION SUMMARY
 ======================================================================
-✅ DAG полностью валиден! Готов к развёртыванию.
+DAG is fully valid! Ready for deployment.
 ======================================================================
 ```
 
-### 4.2. Проверка через Airflow CLI
+### 4.2. Check via the Airflow CLI
 
 ```bash
-# Список всех DAG
+# List all DAGs
 airflow dags list | grep geo_marts
 
-# Проверка на ошибки импорта
+# Check for import errors
 airflow dags list-import-errors
 
-# Показать структуру DAG
+# Show DAG structure
 airflow dags show geo_marts_update
 
-# Список задач
+# List tasks
 airflow tasks list geo_marts_update
 ```
 
-## Шаг 5: Активация DAG
+## Step 5: Activate the DAG
 
-### 5.1. Через Airflow UI
+### 5.1. Via the Airflow UI
 
-1. Откройте Airflow Web UI
-2. Найдите DAG **geo_marts_update** в списке
-3. Включите переключатель (toggle) слева от имени DAG
-4. DAG станет активным
+1. Open the Airflow Web UI
+2. Find the DAG **geo_marts_update** in the list
+3. Toggle the switch on the left of the DAG name
+4. The DAG becomes active
 
-### 5.2. Через Airflow CLI
+### 5.2. Via the Airflow CLI
 
 ```bash
-# Распаузить DAG
+# Unpause the DAG
 airflow dags unpause geo_marts_update
 
-# Проверить статус
+# Check status
 airflow dags state geo_marts_update $(date +%Y-%m-%d)
 ```
 
-## Шаг 6: Тестовый запуск
+## Step 6: Test run
 
-### 6.1. Ручной запуск через UI
+### 6.1. Manual run through the UI
 
-1. В Airflow UI найдите DAG **geo_marts_update**
-2. Нажмите кнопку **"Trigger DAG"** (▶)
-3. Подтвердите запуск
-4. Наблюдайте за выполнением в **Graph View** или **Tree View**
+1. Locate the DAG **geo_marts_update** in the Airflow UI
+2. Click **"Trigger DAG"**
+3. Confirm the trigger
+4. Watch execution in **Graph View** or **Tree View**
 
-### 6.2. Ручной запуск через CLI
+### 6.2. Manual run through the CLI
 
 ```bash
-# Триггер DAG
+# Trigger the DAG
 airflow dags trigger geo_marts_update
 
-# Триггер с конкретной датой
+# Trigger for a specific date
 airflow dags trigger geo_marts_update --exec-date 2024-01-15
 ```
 
-### 6.3. Тест отдельной задачи
+### 6.3. Test a single task
 
 ```bash
-# Тест без реального выполнения
+# Dry-run test
 airflow tasks test geo_marts_update start 2024-01-15
 
-# Проверка параметров задачи
+# Inspect task parameters
 airflow tasks render geo_marts_update update_user_geo_report 2024-01-15
 ```
 
-## Шаг 7: Мониторинг
+## Step 7: Monitoring
 
-### 7.1. Просмотр логов
+### 7.1. View logs
 
 ```bash
-# Логи конкретной задачи
+# Logs of a specific task
 airflow tasks logs geo_marts_update update_user_geo_report $(date +%Y-%m-%d)
 
-# Последние 100 строк
+# Last 100 lines
 airflow tasks logs geo_marts_update update_user_geo_report $(date +%Y-%m-%d) | tail -100
 ```
 
-### 7.2. Проверка статуса выполнения
+### 7.2. Check execution status
 
 ```bash
-# Статус DAG run
+# DAG run status
 airflow dags state geo_marts_update $(date +%Y-%m-%d)
 
-# Список всех запусков
+# List all runs
 airflow dags list-runs -d geo_marts_update
 ```
 
 ### 7.3. Airflow UI Views
 
-- **Graph View**: Визуализация потока задач
-- **Tree View**: История выполнений по датам
-- **Gantt**: Временная диаграмма выполнения
-- **Task Duration**: График длительности задач
+- **Graph View**: task flow visualization
+- **Tree View**: execution history by date
+- **Gantt**: execution timeline
+- **Task Duration**: task duration chart
 
-## Шаг 8: Проверка результатов
+## Step 8: Inspect the results
 
-### 8.1. Проверка HDFS
+### 8.1. Check HDFS
 
 ```bash
-# Подключение к серверу
+# Connect to the server
 ssh -i $SSH_KEY $REMOTE_USER@$REMOTE_HOST
 
-# Вход в контейнер
-CONTAINER=$(docker ps --format '{{.Names}}' | grep ajdara1iev | head -1)
+# Enter the container
+CONTAINER=$(docker ps --format '{{.Names}}' | grep student | head -1)
 docker exec -it $CONTAINER bash
 
-# Проверка витрин в HDFS
-hdfs dfs -ls /user/ajdaral1ev/project/geo/mart/
+# Inspect marts in HDFS
+hdfs dfs -ls /user/student/project/geo/mart/
 
-# Ожидаемый вывод:
-# /user/ajdaral1ev/project/geo/mart/user_geo_report
-# /user/ajdaral1ev/project/geo/mart/zone_mart
-# /user/ajdaral1ev/project/geo/mart/friend_recommendations
+# Expected output:
+# /user/student/project/geo/mart/user_geo_report
+# /user/student/project/geo/mart/zone_mart
+# /user/student/project/geo/mart/friend_recommendations
 ```
 
-### 8.2. Проверка содержимого витрин
+### 8.2. Inspect mart contents
 
 ```bash
-# Количество записей
-hdfs dfs -count /user/ajdaral1ev/project/geo/mart/user_geo_report
-hdfs dfs -count /user/ajdaral1ev/project/geo/mart/zone_mart
-hdfs dfs -count /user/ajdaral1ev/project/geo/mart/friend_recommendations
+# Record counts
+hdfs dfs -count /user/student/project/geo/mart/user_geo_report
+hdfs dfs -count /user/student/project/geo/mart/zone_mart
+hdfs dfs -count /user/student/project/geo/mart/friend_recommendations
 ```
 
 ## Troubleshooting
 
-### Проблема: DAG не появляется в UI
+### Problem: DAG does not appear in the UI
 
-**Решения**:
-1. Проверьте путь к папке dags:
+**Solutions**:
+1. Check the dags folder path:
    ```bash
    airflow config get-value core dags_folder
    ```
 
-2. Проверьте права доступа:
+2. Check permissions:
    ```bash
    chmod 644 $AIRFLOW_DAGS_DIR/geo_marts_dag.py
    ```
 
-3. Проверьте ошибки импорта:
+3. Check for import errors:
    ```bash
    airflow dags list-import-errors
    ```
 
-4. Перезапустите Airflow scheduler:
+4. Restart the Airflow scheduler:
    ```bash
    airflow scheduler restart
-   # Или
+   # Or
    systemctl restart airflow-scheduler
    ```
 
-### Проблема: Connection 'yarn_spark' not found
+### Problem: Connection 'yarn_spark' not found
 
-**Решение**: Создайте подключение (см. Шаг 2)
+**Solution**: Create the connection (see Step 2)
 
-### Проблема: Задача падает с ошибкой
+### Problem: Task fails with an error
 
-**Решения**:
-1. Проверьте логи задачи:
+**Solutions**:
+1. Check task logs:
    ```bash
    airflow tasks logs geo_marts_update <task_id> <date>
    ```
 
-2. Проверьте доступность скриптов:
+2. Check script availability:
    ```bash
    ls -la /lessons/scripts/
    ```
 
-3. Проверьте HDFS пути:
+3. Check HDFS paths:
    ```bash
    hdfs dfs -ls /user/master/data/geo/events
-   hdfs dfs -ls /user/ajdaral1ev/project/geo/raw/geo_csv/
+   hdfs dfs -ls /user/student/project/geo/raw/geo_csv/
    ```
 
-### Проблема: OutOfMemoryError в Spark
+### Problem: OutOfMemoryError in Spark
 
-**Решение**: Увеличьте ресурсы в DAG:
+**Solution**: increase resources in the DAG:
 ```python
 driver_memory='8g'
 executor_memory='8g'
 num_executors=8
 ```
 
-### Проблема: Задача зависла
+### Problem: Task is hanging
 
-**Решение**: Убейте задачу и перезапустите:
+**Solution**: kill the task and restart:
 ```bash
-# Найдите активные Spark jobs
+# Find active Spark jobs
 yarn application -list
 
-# Убейте зависший job
+# Kill the hung job
 yarn application -kill <application_id>
 
-# Очистите задачу в Airflow
+# Clear the task in Airflow
 airflow tasks clear geo_marts_update <task_id> -t <date>
 ```
 
-## Откат изменений
+## Rolling back changes
 
-### Отключение DAG
+### Disable the DAG
 
 ```bash
-# Через CLI
+# Via CLI
 airflow dags pause geo_marts_update
 
-# Через UI: выключите toggle переключатель
+# Via UI: toggle the switch off
 ```
 
-### Удаление DAG
+### Delete the DAG
 
 ```bash
-# Удалите файл
+# Remove the file
 rm $AIRFLOW_DAGS_DIR/geo_marts_dag.py
 
-# Удалите из базы данных
+# Remove from the database
 airflow dags delete geo_marts_update
 ```
 
-## Автоматическое развёртывание (CI/CD)
+## Automated deployment (CI/CD)
 
-### Пример shell скрипта для развёртывания
+### Example shell script for deployment
 
 ```bash
 #!/bin/bash
@@ -425,66 +425,66 @@ set -e
 AIRFLOW_DAGS_DIR="/opt/airflow/dags"
 PROJECT_DIR="/path/to/project"
 
-echo "Деплой DAG для geo marts..."
+echo "Deploying DAG for geo marts..."
 
-# 1. Валидация
-echo "1. Валидация DAG..."
+# 1. Validation
+echo "1. Validating DAG..."
 cd $PROJECT_DIR/dags
 python3 validate_dag.py
 if [ $? -ne 0 ]; then
-    echo "❌ Валидация провалена!"
+    echo "Validation failed!"
     exit 1
 fi
 
-# 2. Копирование скриптов
-echo "2. Копирование скриптов..."
+# 2. Copy scripts
+echo "2. Copying scripts..."
 cp $PROJECT_DIR/src/scripts/*.py /lessons/scripts/
 
-# 3. Копирование DAG
-echo "3. Копирование DAG..."
+# 3. Copy DAG
+echo "3. Copying DAG..."
 cp $PROJECT_DIR/dags/geo_marts_dag.py $AIRFLOW_DAGS_DIR/
 
-# 4. Проверка в Airflow
-echo "4. Проверка в Airflow..."
+# 4. Verify in Airflow
+echo "4. Verifying in Airflow..."
 sleep 5
 airflow dags list | grep geo_marts_update
 if [ $? -ne 0 ]; then
-    echo "❌ DAG не найден в Airflow!"
+    echo "DAG not found in Airflow!"
     exit 1
 fi
 
-# 5. Активация
-echo "5. Активация DAG..."
+# 5. Activate
+echo "5. Activating DAG..."
 airflow dags unpause geo_marts_update
 
-echo "✅ Деплой успешно завершён!"
+echo "Deployment completed successfully!"
 ```
 
-## Полезные команды
+## Useful commands
 
 ```bash
-# Список всех DAG
+# List all DAGs
 airflow dags list
 
-# Информация о DAG
+# DAG info
 airflow dags show geo_marts_update
 
-# Список задач
+# List tasks
 airflow tasks list geo_marts_update
 
-# История запусков
+# Run history
 airflow dags list-runs -d geo_marts_update --state success
 airflow dags list-runs -d geo_marts_update --state failed
 
-# Очистка задач для повторного запуска
+# Clear tasks for re-run
 airflow tasks clear geo_marts_update -s 2024-01-01 -e 2024-01-31
 
-# Backfill (выполнение за прошлые даты)
+# Backfill (run for past dates)
 airflow dags backfill geo_marts_update -s 2024-01-01 -e 2024-01-10
 ```
 
-## Контакты
+## Contacts
 
-**Проект**: Data Lake Sprint 7 - Geo Recommendations
-**Owner**: ajdaral1ev
-**Создано**: 2024
+**Project**: Data Lake Sprint 7 - Geo Recommendations
+**Owner**: student
+**Created**: 2024

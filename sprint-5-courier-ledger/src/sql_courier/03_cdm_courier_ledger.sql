@@ -1,10 +1,10 @@
--- CDM: витрина выплат курьерам
+-- CDM: courier payout mart
 CREATE SCHEMA IF NOT EXISTS cdm;
 
 CREATE TABLE IF NOT EXISTS cdm.dm_courier_ledger
 (
     id                  SERIAL PRIMARY KEY,
-    courier_id          text        NOT NULL, -- бизнес-идентификатор курьера
+    courier_id          text        NOT NULL, -- courier business identifier
     courier_name        text        NOT NULL,
     settlement_year     INTEGER     NOT NULL,
     settlement_month    SMALLINT    NOT NULL,

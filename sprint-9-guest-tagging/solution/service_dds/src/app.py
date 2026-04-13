@@ -20,12 +20,12 @@ def hello_world():
 if __name__ == '__main__':
     app.logger.setLevel(logging.DEBUG)
 
-    # Создаём зависимости
+    # Build dependencies
     consumer = config.kafka_consumer()
     producer = config.kafka_producer()
     dds_repository = DdsRepository(config.pg_warehouse_db())
 
-    # Передаём зависимости в процессор
+    # Pass the dependencies into the processor
     proc = DdsMessageProcessor(
         consumer=consumer,
         producer=producer,

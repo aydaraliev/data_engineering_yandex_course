@@ -29,16 +29,16 @@ class DdsMessageProcessor:
         for _ in range(self._batch_size):
             msg = self._consumer.consume()
             if msg is None:
-                self._logger.info("Сообщений больше нет")
+                self._logger.info("No more messages")
                 break
 
-            self._logger.info(f"Получено сообщение: {msg.get('object_id')}")
+            self._logger.info(f"Received message: {msg.get('object_id')}")
 
-            # Извлекаем payload
+            # Extract the payload
             payload = msg.get('payload', {})
             order_id = msg.get('object_id')
 
-            # Парсим данные из payload
+            # Parse data from the payload
             user_data = payload.get('user', {})
             restaurant_data = payload.get('restaurant', {})
             products_data = payload.get('products', [])
@@ -47,12 +47,12 @@ class DdsMessageProcessor:
             load_dt = datetime.utcnow()
             load_src = 'stg-service-orders'
 
-            # Генерируем UUID для хабов
+            # Generate UUIDs for the hubs
             h_user_pk = generate_uuid(user_data.get('id'))
             h_restaurant_pk = generate_uuid(restaurant_data.get('id'))
             h_order_pk = generate_uuid(str(order_id))
 
-            # ==================== Вставка в хабы ====================
+            # ==================== Insert into hubs ====================
 
             # h_user
             self._dds_repository.h_user_insert(H_User(
@@ -79,7 +79,7 @@ class DdsMessageProcessor:
                 load_src=load_src
             ))
 
-            # ==================== Вставка в линк l_order_user ====================
+            # ==================== Insert into link l_order_user ====================
             hk_order_user_pk = generate_uuid(f"{order_id}_{user_data.get('id')}")
             self._dds_repository.l_order_user_insert(L_Order_User(
                 hk_order_user_pk=hk_order_user_pk,
@@ -89,9 +89,9 @@ class DdsMessageProcessor:
                 load_src=load_src
             ))
 
-            # ==================== Вставка в сателлиты для user, restaurant, order ====================
+            # ==================== Insert into satellites for user, restaurant, order ====================
 
-            # s_user_names (name используется для обоих полей)
+            # s_user_names (name is used for both fields)
             user_name = user_data.get('name', '')
             hk_user_names_hashdiff = generate_uuid(f"{user_name}_{user_name}")
             self._dds_repository.s_user_names_insert(S_User_Names(
@@ -138,7 +138,7 @@ class DdsMessageProcessor:
                 hk_order_status_hashdiff=hk_order_status_hashdiff
             ))
 
-            # ==================== Обработка продуктов ====================
+            # ==================== Product processing ====================
             output_products = []
 
             for product in products_data:
@@ -205,14 +205,14 @@ class DdsMessageProcessor:
                     hk_product_names_hashdiff=hk_product_names_hashdiff
                 ))
 
-                # Добавляем продукт в выходной список
+                # Append the product to the output list
                 output_products.append({
                     "id": product_id,
                     "name": product_name,
                     "category": category_name
                 })
 
-            # ==================== Формируем выходное сообщение для CDM ====================
+            # ==================== Build the outbound message for CDM ====================
             output_msg = {
                 "object_id": order_id,
                 "object_type": "order",
@@ -224,8 +224,8 @@ class DdsMessageProcessor:
 
             self._producer.produce(output_msg)
 
-            # Фиксируем offset после успешной обработки
+            # Commit the offset after successful processing
             self._consumer.commit()
-            self._logger.info(f"Сообщение {order_id} обработано и отправлено в Kafka")
+            self._logger.info(f"Message {order_id} processed and sent to Kafka")
 
         self._logger.info(f"{datetime.utcnow()}: FINISH")

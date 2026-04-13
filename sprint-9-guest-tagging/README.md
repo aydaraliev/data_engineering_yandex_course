@@ -1,7 +1,5 @@
 # Sprint 9 Project: Guest Tagging DWH Pipeline
 
-Source snapshot: [`de-projects/de-project-sprint-9/`](../de-projects/de-project-sprint-9/)
-
 A three-layer Data Warehouse that powers a guest tagging feature for a restaurant chain. Order data is ingested in real time through Kafka and persisted to PostgreSQL.
 
 ## Deployment Status
@@ -162,7 +160,7 @@ Raw order data from the source, enriched with user and restaurant data from Redi
 
 ### DDS (Detailed Data Store)
 
-Normalised storage following the Data Vault 2.0 model.
+Normalized storage following the Data Vault 2.0 model.
 
 **Hubs (business keys):**
 - `dds.h_user` — users.

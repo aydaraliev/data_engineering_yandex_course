@@ -1,10 +1,8 @@
 # Sprint 6 Project: Social Network Group Conversion Analysis
 
-Source snapshot: [`de-projects/de-project-sprint-6/`](../de-projects/de-project-sprint-6/)
-
 ## Project Description
 
-The project extends the existing analytical Data Vault warehouse with entities that support analysing user conversion inside social-network groups. The goal is to identify groups with a high conversion rate from joining to posting the first message, so that ad placements can be targeted more effectively.
+The project extends the existing analytical Data Vault warehouse with entities that support analyzing user conversion inside social-network groups. The goal is to identify groups with a high conversion rate from joining to posting the first message, so that ad placements can be targeted more effectively.
 
 ## Solution Architecture
 
@@ -22,7 +20,7 @@ The project extends the existing analytical Data Vault warehouse with entities t
 ## Project Layout
 
 ```
-de-project-sprint-6/
+sprint-6-group-conversion/
 ├── src/
 │   ├── dags/
 │   │   └── sprint6_project_dag.py          # Main Airflow DAG (contains all DDL/DML)
@@ -106,7 +104,7 @@ WHERE NOT EXISTS (
 )
 ```
 
-> **Note:** Vertica does not support conventional indexes. Projections are used instead to optimise queries. `NOT EXISTS` queries run efficiently thanks to Vertica's built-in optimiser.
+> **Note:** Vertica does not support conventional indexes. Projections are used instead to optimize queries. `NOT EXISTS` queries run efficiently thanks to Vertica's built-in optimizer.
 
 ## Additional Information
 

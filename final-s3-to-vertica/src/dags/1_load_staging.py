@@ -38,7 +38,7 @@ def get_vertica_connection():
 
 def load_currencies(**context):
     execution_date = context['ds']
-    logging.info(f"Загрузка валют за дату: {execution_date}")
+    logging.info(f"Loading currencies for date: {execution_date}")
 
     s3 = get_s3_client()
     response = s3.get_object(Bucket=S3_BUCKET, Key='currencies_history.csv')
@@ -57,10 +57,10 @@ def load_currencies(**context):
                 row.get('currency_code_div', '1.0')
             ])
 
-    logging.info(f"Найдено {len(rows_to_insert)} записей валют за {execution_date}")
+    logging.info(f"Found {len(rows_to_insert)} currency records for {execution_date}")
 
     if not rows_to_insert:
-        logging.info("Нет данных по валютам за эту дату")
+        logging.info("No currency data for this date")
         return
 
     buffer = StringIO()
@@ -85,10 +85,10 @@ def load_currencies(**context):
         """
         cur.copy(copy_query, buffer)
         conn.commit()
-        logging.info(f"Загружено {len(rows_to_insert)} записей валют")
+        logging.info(f"Loaded {len(rows_to_insert)} currency records")
     except Exception as e:
         conn.rollback()
-        logging.error(f"Ошибка загрузки валют: {e}")
+        logging.error(f"Currency load error: {e}")
         raise
     finally:
         cur.close()
@@ -97,7 +97,7 @@ def load_currencies(**context):
 
 def load_transactions(**context):
     execution_date = context['ds']
-    logging.info(f"Загрузка транзакций за дату: {execution_date}")
+    logging.info(f"Loading transactions for date: {execution_date}")
 
     s3 = get_s3_client()
     response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix='transactions')
@@ -107,12 +107,12 @@ def load_transactions(**context):
         if obj['Key'].endswith('.csv')
     ]
 
-    logging.info(f"Найдено {len(transaction_files)} файлов транзакций")
+    logging.info(f"Found {len(transaction_files)} transaction files")
 
     all_rows = []
 
     for file_key in transaction_files:
-        logging.info(f"Обработка файла: {file_key}")
+        logging.info(f"Processing file: {file_key}")
         response = s3.get_object(Bucket=S3_BUCKET, Key=file_key)
         content = response['Body'].read().decode('utf-8')
         reader = csv.DictReader(StringIO(content))
@@ -132,10 +132,10 @@ def load_transactions(**context):
                     row.get('transaction_dt', '')
                 ])
 
-    logging.info(f"Найдено {len(all_rows)} транзакций за {execution_date}")
+    logging.info(f"Found {len(all_rows)} transactions for {execution_date}")
 
     if not all_rows:
-        logging.info("Нет данных по транзакциям за эту дату")
+        logging.info("No transaction data for this date")
         return
 
     buffer = StringIO()
@@ -161,10 +161,10 @@ def load_transactions(**context):
         """
         cur.copy(copy_query, buffer)
         conn.commit()
-        logging.info(f"Загружено {len(all_rows)} транзакций")
+        logging.info(f"Loaded {len(all_rows)} transactions")
     except Exception as e:
         conn.rollback()
-        logging.error(f"Ошибка загрузки транзакций: {e}")
+        logging.error(f"Transaction load error: {e}")
         raise
     finally:
         cur.close()

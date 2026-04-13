@@ -22,20 +22,20 @@ class StgMessageProcessor:
         self._batch_size = batch_size
         self._logger = logger
 
-    # функция, которая будет вызываться по расписанию.
+    # Function that will be invoked on schedule.
     def run(self) -> None:
-        # Пишем в лог, что джоб был запущен.
+        # Log that the job has started.
         self._logger.info(f"{datetime.utcnow()}: START")
 
         for _ in range(self._batch_size):
-            # Получаем сообщение из Kafka
+            # Consume a message from Kafka
             msg = self._consumer.consume()
 
-            # Если сообщений больше нет, прекращаем обработку
+            # If there are no more messages, stop processing
             if msg is None:
                 break
 
-            # Сохраняем сообщение в STG
+            # Persist the message into STG
             self._stg_repository.order_events_insert(
                 object_id=msg['object_id'],
                 object_type=msg['object_type'],
@@ -43,18 +43,18 @@ class StgMessageProcessor:
                 payload=json.dumps(msg['payload'])
             )
 
-            # Достаём user_id и получаем информацию о пользователе из Redis
+            # Extract user_id and look up user info from Redis
             user_id = msg['payload']['user']['id']
             user = self._redis.get(user_id)
 
-            # Достаём restaurant_id и получаем информацию о ресторане из Redis
+            # Extract restaurant_id and look up restaurant info from Redis
             restaurant_id = msg['payload']['restaurant']['id']
             restaurant = self._redis.get(restaurant_id)
 
-            # Создаём словарь продуктов из меню ресторана для быстрого поиска категории
+            # Build a product dictionary from the restaurant menu for quick category lookup
             menu_products = {p['_id']: p for p in restaurant['menu']}
 
-            # Для каждого product получаем категорию из меню ресторана
+            # For each product, fetch its category from the restaurant menu
             products = []
             for item in msg['payload']['order_items']:
                 product_id = item['id']
@@ -67,7 +67,7 @@ class StgMessageProcessor:
                     'category': product_menu.get('category', '')
                 })
 
-            # Формируем выходное сообщение
+            # Build the outbound message
             output_msg = {
                 'object_id': msg['object_id'],
                 'object_type': msg['object_type'],
@@ -89,13 +89,13 @@ class StgMessageProcessor:
                 }
             }
 
-            # Отправляем сообщение в producer
+            # Send the message to the producer
             self._producer.produce(output_msg)
 
-            # Фиксируем offset после успешной обработки
+            # Commit the offset after successful processing
             self._consumer.commit()
 
             self._logger.info(f"Message {msg['object_id']} processed")
 
-        # Пишем в лог, что джоб успешно завершен.
+        # Log that the job has completed successfully.
         self._logger.info(f"{datetime.utcnow()}: FINISH")

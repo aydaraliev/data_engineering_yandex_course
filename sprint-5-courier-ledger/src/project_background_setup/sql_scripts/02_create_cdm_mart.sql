@@ -12,13 +12,13 @@ CREATE TABLE cdm.dm_settlement_report
     order_processing_fee     NUMERIC(14, 2) NOT NULL,
     restaurant_reward_sum    NUMERIC(14, 2) NOT NULL
 );
--- Отличия expected → actual
+-- Diff expected -> actual
 WITH diff1 AS (SELECT *
                FROM public_test.dm_settlement_report_expected
                EXCEPT ALL
                SELECT *
                FROM public_test.dm_settlement_report_actual),
--- Отличия actual → expected
+-- Diff actual -> expected
      diff2 AS (SELECT *
                FROM public_test.dm_settlement_report_actual
                EXCEPT ALL

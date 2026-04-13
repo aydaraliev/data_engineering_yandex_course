@@ -1,29 +1,29 @@
 #!/bin/bash
 set -e
 
-# Константы подключения
+# Connection constants
 SSH_KEY="$HOME/.ssh/ssh_private_key"
-SSH_USER="yc-user"
-SSH_HOST="158.160.159.232"
+SSH_USER="cluster-user"
+SSH_HOST="10.0.0.10"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no"
 
 echo "=============================================="
-echo "Развертывание Python скриптов на $SSH_HOST"
+echo "Deploying Python scripts to $SSH_HOST"
 echo "=============================================="
 
-# Проверка SSH подключения
-echo "→ Проверка SSH подключения..."
-ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} "echo 'SSH подключение работает'" || {
-    echo "✗ Ошибка SSH подключения"
-    echo "  Проверьте:"
-    echo "  - SSH ключ существует: $SSH_KEY"
-    echo "  - Доступность хоста: $SSH_HOST"
-    echo "  - Права пользователя: $SSH_USER"
+# Check SSH connection
+echo "-> Checking SSH connection..."
+ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} "echo 'SSH connection works'" || {
+    echo "SSH connection failed"
+    echo "  Verify:"
+    echo "  - SSH key exists: $SSH_KEY"
+    echo "  - Host reachable: $SSH_HOST"
+    echo "  - User permissions: $SSH_USER"
     exit 1
 }
-echo "✓ SSH подключение успешно"
+echo "SSH connection successful"
 
-# Список скриптов для развертывания
+# Scripts to deploy
 SCRIPTS=(
     "src/scripts/create_ods_layer.py"
     "src/scripts/geo_utils.py"
@@ -32,68 +32,68 @@ SCRIPTS=(
     "src/scripts/friend_recommendations.py"
 )
 
-# Проверка существования файлов локально
+# Check files exist locally
 echo ""
-echo "→ Проверка наличия файлов..."
+echo "-> Checking files are present..."
 for script in "${SCRIPTS[@]}"; do
     if [ ! -f "$script" ]; then
-        echo "✗ Файл не найден: $script"
+        echo "File not found: $script"
         exit 1
     fi
 done
-echo "✓ Все файлы найдены локально"
+echo "All files found locally"
 
-# Копирование скриптов
+# Copy scripts
 echo ""
-echo "→ Создание директории scripts в контейнере (если не существует)..."
+echo "-> Creating the scripts directory in the container (if missing)..."
 ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-    "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
+    "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
      mkdir -p /lessons/scripts" || {
-    echo "✗ Ошибка создания директории scripts"
+    echo "Failed to create the scripts directory"
     exit 1
 }
-echo "✓ Директория /lessons/scripts готова"
+echo "Directory /lessons/scripts is ready"
 
 echo ""
-echo "→ Копирование скриптов..."
+echo "-> Copying scripts..."
 for script in "${SCRIPTS[@]}"; do
     script_name=$(basename $script)
-    echo "  Копирование $script_name..."
+    echo "  Copying $script_name..."
 
-    # Копируем файл на сервер во временную директорию
+    # Copy the file to the server's temp directory
     scp $SSH_OPTS "$script" ${SSH_USER}@${SSH_HOST}:/tmp/ || {
-        echo "✗ Ошибка копирования $script_name на сервер"
+        echo "Failed to copy $script_name to the server"
         exit 1
     }
 
-    # Копируем из временной директории в Docker контейнер
+    # Copy from the temp directory into the Docker container
     ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-        "docker cp /tmp/$script_name \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1):/lessons/scripts/" || {
-        echo "✗ Ошибка копирования $script_name в Docker контейнер"
+        "docker cp /tmp/$script_name \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1):/lessons/scripts/" || {
+        echo "Failed to copy $script_name into the Docker container"
         exit 1
     }
 
-    echo "  ✓ $script_name развернут"
+    echo "  $script_name deployed"
 done
 
-# Проверка развертывания
+# Verify deployment
 echo ""
-echo "→ Проверка развертывания в Docker контейнере..."
+echo "-> Verifying deployment inside the Docker container..."
 ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-    "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
+    "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
      sh -c 'ls -lh /lessons/scripts/*.py'" || {
-    echo "✗ Ошибка проверки файлов в контейнере"
+    echo "Failed to verify files in the container"
     exit 1
 }
 
 echo ""
 echo "=============================================="
-echo "✓ Все скрипты успешно развернуты!"
+echo "All scripts deployed successfully!"
 echo "=============================================="
 echo ""
-echo "Развернутые скрипты:"
+echo "Deployed scripts:"
 for script in "${SCRIPTS[@]}"; do
     echo "  - $(basename $script)"
 done
 echo ""
-echo "Следующий шаг: ./setup_hdfs.sh"
+echo "Next step: ./setup_hdfs.sh"

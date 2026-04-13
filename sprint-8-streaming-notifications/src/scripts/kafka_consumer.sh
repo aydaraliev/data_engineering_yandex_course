@@ -1,14 +1,14 @@
 #!/bin/bash
-# Скрипт для чтения сообщений из Kafka топика
-# Использование: ./kafka_consumer.sh [topic] [--follow]
+# Script for reading messages from a Kafka topic
+# Usage: ./kafka_consumer.sh [topic] [--follow]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 
 TOPIC="${1:-$KAFKA_TOPIC_IN}"
-EXIT_FLAG="-e"  # По умолчанию выходим после прочтения всех сообщений
+EXIT_FLAG="-e"  # By default, exit after reading all messages
 
-# Если передан флаг --follow, ждём новые сообщения
+# If the --follow flag is passed, keep waiting for new messages
 if [[ "$2" == "--follow" ]]; then
     EXIT_FLAG=""
     echo "Starting Kafka consumer for topic: $TOPIC (following new messages)"

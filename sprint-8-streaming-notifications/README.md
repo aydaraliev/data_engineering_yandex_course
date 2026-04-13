@@ -1,7 +1,5 @@
 # Sprint 8 Project: Restaurant Subscription Streaming Service
 
-Source snapshot: [`de-projects/de-project-sprint-8/`](../de-projects/de-project-sprint-8/)
-
 A streaming service that processes restaurant subscriptions for a food-delivery aggregator.
 
 ## Description
@@ -35,7 +33,7 @@ The service processes restaurant promotional campaigns in real time and delivers
               | 4. Add trigger_datetime     |
               | 5. Persist DataFrame        |
               | 6. Write to PostgreSQL      |
-              | 7. Serialise as JSON        |
+              | 7. Serialize as JSON        |
               | 8. Push to Kafka            |
               | 9. Unpersist DataFrame      |
               +-------------+---------------+
@@ -64,7 +62,7 @@ The service processes restaurant promotional campaigns in real time and delivers
 ## Project Layout
 
 ```
-de-project-sprint-8/
+sprint-8-streaming-notifications/
 ├── README.md
 ├── .gitignore
 └── src/
@@ -166,7 +164,7 @@ export PG_DEST_PASSWORD="your-password"
 
 # Remote server
 export REMOTE_HOST="your-server-ip"
-export REMOTE_USER="yc-user"
+export REMOTE_USER="cluster-user"
 export SSH_KEY="$HOME/.ssh/your_key"
 export DOCKER_CONTAINER="your-container-name"
 ```

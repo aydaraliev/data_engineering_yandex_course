@@ -21,11 +21,11 @@ def hello_world():
 if __name__ == '__main__':
     app.logger.setLevel(logging.DEBUG)
 
-    # Создаём зависимости
+    # Build dependencies
     consumer = config.kafka_consumer()
     cdm_repository = CdmRepository(config.pg_warehouse_db())
 
-    # Передаём зависимости в процессор
+    # Pass the dependencies into the processor
     proc = CdmMessageProcessor(
         consumer=consumer,
         cdm_repository=cdm_repository,

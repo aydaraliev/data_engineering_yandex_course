@@ -10,23 +10,24 @@ from stg_loader.repository.stg_repository import StgRepository
 app = Flask(__name__)
 
 
-# Заводим endpoint для проверки, поднялся ли сервис.
-# Обратиться к нему можно будет GET-запросом по адресу localhost:5000/health.
-# Если в ответе будет healthy - сервис поднялся и работает.
+# Register an endpoint for checking whether the service is up.
+# It can be reached with a GET request at localhost:5000/health.
+# If the response is 'healthy', the service is up and running.
 @app.get('/health')
 def health():
     return 'healthy'
 
 
 if __name__ == '__main__':
-    # Устанавливаем уровень логгирования в Debug, чтобы иметь возможность просматривать отладочные логи.
+    # Set the logging level to Debug so that debug logs can be viewed.
     app.logger.setLevel(logging.DEBUG)
 
-    # Инициализируем конфиг. Для удобства, вынесли логику получения значений переменных окружения в отдельный класс.
+    # Initialize the config. For convenience, the logic for reading environment variables
+    # has been extracted into a dedicated class.
     config = AppConfig()
 
-    # Инициализируем процессор сообщений.
-    # Пока он пустой. Нужен для того, чтобы потом в нем писать логику обработки сообщений из Kafka.
+    # Initialize the message processor.
+    # It is empty for now; message-handling logic for Kafka will be added later.
     proc = StgMessageProcessor(
         config.kafka_consumer(),
         config.kafka_producer(),
@@ -36,11 +37,11 @@ if __name__ == '__main__':
         app.logger
     )
 
-    # Запускаем процессор в бэкграунде.
-    # BackgroundScheduler будет по расписанию вызывать функцию run нашего обработчика(StgMessageProcessor).
+    # Run the processor in the background.
+    # BackgroundScheduler will invoke the run method of our handler (StgMessageProcessor) on schedule.
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=proc.run, trigger="interval", seconds=config.DEFAULT_JOB_INTERVAL)
     scheduler.start()
 
-    # стартуем Flask-приложение.
+    # Start the Flask application.
     app.run(debug=True, host='0.0.0.0', use_reloader=False)

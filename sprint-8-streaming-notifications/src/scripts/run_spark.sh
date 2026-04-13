@@ -1,5 +1,5 @@
 #!/bin/bash
-# Скрипт для запуска Spark Streaming задачи на удалённом сервере
+# Script for launching the Spark Streaming job on the remote server
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
@@ -9,8 +9,8 @@ SPARK_SCRIPT="${1:-streaming.py}"
 
 echo "=== Running Spark job: $SPARK_SCRIPT ==="
 
-# Экспортируем переменные окружения и запускаем spark-submit
-# Используем unbuffer для получения output в реальном времени
+# Export environment variables and run spark-submit
+# Use unbuffered output for real-time logs
 ssh -i "$SSH_KEY" "$REMOTE_USER@$REMOTE_HOST" "docker exec $DOCKER_CONTAINER bash -c '\
     export KAFKA_BOOTSTRAP_SERVER=\"$KAFKA_BOOTSTRAP_SERVER\" && \
     export KAFKA_USERNAME=\"$KAFKA_USERNAME\" && \

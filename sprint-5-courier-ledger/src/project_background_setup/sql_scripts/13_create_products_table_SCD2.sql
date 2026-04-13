@@ -1,4 +1,4 @@
--- Создание таблицы dm_products в схеме dds с поддержкой SCD 2
+-- Create the dm_products table in the dds schema with SCD 2 support
 CREATE TABLE IF NOT EXISTS dds.dm_products
 (
     id            SERIAL PRIMARY KEY,

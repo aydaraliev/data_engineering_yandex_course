@@ -21,47 +21,47 @@ class CdmMessageProcessor:
         for _ in range(self._batch_size):
             msg = self._consumer.consume()
             if msg is None:
-                self._logger.info("Сообщений больше нет")
+                self._logger.info("No more messages")
                 break
 
             order_id = msg.get('object_id')
-            self._logger.info(f"Получено сообщение: {order_id}")
+            self._logger.info(f"Received message: {order_id}")
 
-            # Проверяем, был ли заказ уже обработан (идемпотентность)
+            # Check whether the order has already been processed (idempotency)
             if self._cdm_repository.is_order_processed(order_id):
-                self._logger.info(f"Заказ {order_id} уже обработан, пропускаем")
+                self._logger.info(f"Order {order_id} has already been processed, skipping")
                 self._consumer.commit()
                 continue
 
-            # Извлекаем payload
+            # Extract the payload
             payload = msg.get('payload', {})
             user_id_str = payload.get('user_id')
             products = payload.get('products', [])
 
-            # Генерируем UUID пользователя
+            # Generate the user UUID
             h_user_pk = generate_uuid(user_id_str)
 
-            # Множество для отслеживания уникальных категорий в заказе
+            # Set used to track unique categories within the order
             processed_categories = set()
 
-            # Обрабатываем каждый продукт
+            # Process each product
             for product in products:
                 product_id_str = product.get('id')
                 product_name = product.get('name')
                 category_name = product.get('category')
 
-                # Генерируем UUID продукта и категории
+                # Generate product and category UUIDs
                 h_product_pk = generate_uuid(product_id_str)
                 h_category_pk = generate_uuid(category_name)
 
-                # Обновляем счётчик продуктов пользователя
+                # Update the user's product counter
                 self._cdm_repository.user_product_counters_upsert(
                     user_id=h_user_pk,
                     product_id=h_product_pk,
                     product_name=product_name
                 )
 
-                # Обновляем счётчик категорий (только для уникальных категорий в заказе)
+                # Update the category counter (only for unique categories within the order)
                 if category_name not in processed_categories:
                     self._cdm_repository.user_category_counters_upsert(
                         user_id=h_user_pk,
@@ -70,12 +70,12 @@ class CdmMessageProcessor:
                     )
                     processed_categories.add(category_name)
 
-            # Помечаем заказ как обработанный
+            # Mark the order as processed
             self._cdm_repository.mark_order_processed(order_id)
 
-            # Фиксируем offset после успешной обработки
+            # Commit the offset after successful processing
             self._consumer.commit()
 
-            self._logger.info(f"Сообщение {order_id} обработано")
+            self._logger.info(f"Message {order_id} processed")
 
         self._logger.info(f"{datetime.utcnow()}: FINISH")

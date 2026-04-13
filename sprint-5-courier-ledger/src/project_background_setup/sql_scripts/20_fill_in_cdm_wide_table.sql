@@ -14,7 +14,7 @@ SELECT r.restaurant_id,
        COALESCE(SUM(fs.total_sum), 0)::numeric(14, 2)          AS orders_total_sum,
        COALESCE(SUM(fs.bonus_payment), 0)::numeric(14, 2)      AS orders_bonus_payment_sum,
        COALESCE(SUM(fs.bonus_grant), 0)::numeric(14, 2)        AS orders_bonus_granted_sum,
-       -- комиссия 25% от общей суммы заказа
+       -- 25% commission on the total order sum
        (COALESCE(SUM(fs.total_sum), 0) * 0.25)::numeric(14, 2) AS order_processing_fee,
        -- restaurant_reward = total_sum - commission - bonus_payment
        (COALESCE(SUM(fs.total_sum), 0)
@@ -25,7 +25,7 @@ FROM dds.fct_product_sales fs
          JOIN dds.dm_orders o ON fs.order_id = o.id
          JOIN dds.dm_restaurants r ON o.restaurant_id = r.id
          JOIN dds.dm_timestamps ts ON o.timestamp_id = ts.id
--- только закрытые заказы
+-- only closed orders
 WHERE o.order_status ILIKE 'closed'
 GROUP BY r.restaurant_id, r.restaurant_name, ts.date
 ON CONFLICT (restaurant_id, settlement_date) DO UPDATE

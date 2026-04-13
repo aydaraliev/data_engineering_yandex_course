@@ -1,18 +1,18 @@
 """
-DAG для автоматизации обновления geo-витрин с использованием ODS слоя.
+DAG for automated refresh of geo marts using the ODS layer.
 
-Архитектура:
-1. create_ods_layer - Создание ODS слоя (события с городами)
-2. user_geo_report - Геоаналитика пользователей (читает из ODS)
-3. zone_mart - Агрегация событий по зонам (читает из ODS)
-4. friend_recommendations - Рекомендации друзей (читает из ODS)
+Architecture:
+1. create_ods_layer - builds the ODS layer (events with cities)
+2. user_geo_report - user geo analytics (reads from ODS)
+3. zone_mart - event aggregation by zones (reads from ODS)
+4. friend_recommendations - friend recommendations (reads from ODS)
 
-Преимущества ODS слоя:
-- Однократное выполнение дорогой операции определения городов
-- 3x ускорение (вместо 3 раз определяем города 1 раз)
-- Переиспользование обогащенных данных во всех витринах
+Benefits of the ODS layer:
+- The expensive city resolution operation runs only once
+- 3x speed-up (city resolution done once instead of three times)
+- Enriched data is reused across every mart
 
-Расписание: ежедневно в 00:00 UTC
+Schedule: daily at 00:00 UTC
 """
 
 from datetime import datetime, timedelta
@@ -24,50 +24,50 @@ from airflow.utils.dates import days_ago
 from airflow.models import Variable
 
 def log_start(**context):
-    """Логирует начало обновления витрин."""
+    """Logs the start of the mart refresh."""
     execution_date = context['execution_date']
-    print(f"Начало обновления geo-витрин для даты: {execution_date}")
+    print(f"Starting geo mart refresh for date: {execution_date}")
     return f"Started at {datetime.now()}"
 
 def log_end(**context):
-    """Логирует успешное завершение обновления."""
+    """Logs a successful completion of the refresh."""
     execution_date = context['execution_date']
-    print(f"Успешно обновлены все geo-витрины для даты: {execution_date}")
+    print(f"All geo marts refreshed successfully for date: {execution_date}")
     return f"Completed at {datetime.now()}"
 
-# Параметры по умолчанию для всех задач
+# Default parameters for every task
 default_args = {
-    'owner': 'ajdaral1ev',
+    'owner': 'student',
     'depends_on_past': False,
     'start_date': datetime(2024, 1, 1),
-    'email': ['ajdaral1ev@example.com'],
+    'email': ['student@example.com'],
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 2,
     'retry_delay': timedelta(minutes=5),
 }
 
-# Создаем DAG
+# Create DAG
 dag = DAG(
     'geo_marts_update',
     default_args=default_args,
     description='Daily update of geo-based data marts',
-    schedule_interval='0 0 * * *',  # Ежедневно в 00:00 UTC
+    schedule_interval='0 0 * * *',  # Daily at 00:00 UTC
     catchup=False,
     max_active_runs=1,
     tags=['geo', 'marts', 'daily'],
 )
 
-# Получаем sample_fraction из Airflow Variables (по умолчанию 1.0 = все данные)
+# Fetch sample_fraction from Airflow Variables (defaults to 1.0 = all data)
 try:
     sample_fraction = float(Variable.get("geo_marts_sample_fraction", default_var="1.0"))
 except Exception:
     sample_fraction = 1.0
 
-# Формируем application_args для режима выборки
+# Build application_args for sampling mode
 sample_args = ['--sample', str(sample_fraction)] if sample_fraction < 1.0 else []
 
-# Начало DAG - логирование
+# DAG start - logging
 start = PythonOperator(
     task_id='start',
     python_callable=log_start,
@@ -75,7 +75,7 @@ start = PythonOperator(
     dag=dag,
 )
 
-# Задача 1: Создание ODS слоя (события с городами)
+# Task 1: Build the ODS layer (events with cities)
 create_ods_layer = SparkSubmitOperator(
     task_id='create_ods_layer',
     application='/lessons/scripts/create_ods_layer.py',
@@ -84,9 +84,9 @@ create_ods_layer = SparkSubmitOperator(
     conf={
         'spark.sql.adaptive.enabled': 'true',
         'spark.sql.shuffle.partitions': '20',
-        'spark.sql.parquet.compression.codec': 'snappy',  # ОПТИМИЗАЦИЯ: Snappy compression
+        'spark.sql.parquet.compression.codec': 'snappy',  # OPTIMIZATION: Snappy compression
     },
-    application_args=sample_args,  # Поддержка режима выборки через Airflow Variables
+    application_args=sample_args,  # Support sample mode via Airflow Variables
     py_files='/lessons/scripts/geo_utils.py',
     driver_memory='4g',
     executor_memory='4g',
@@ -96,7 +96,7 @@ create_ods_layer = SparkSubmitOperator(
     dag=dag,
 )
 
-# Задача 2: Обновление user_geo_report
+# Task 2: Refresh user_geo_report
 update_user_geo_report = SparkSubmitOperator(
     task_id='update_user_geo_report',
     application='/lessons/scripts/user_geo_mart.py',
@@ -105,9 +105,9 @@ update_user_geo_report = SparkSubmitOperator(
     conf={
         'spark.sql.adaptive.enabled': 'true',
         'spark.sql.shuffle.partitions': '20',  # Reduced from 200 for 1.5GB dataset
-        'spark.sql.parquet.compression.codec': 'snappy',  # ОПТИМИЗАЦИЯ: Snappy compression
+        'spark.sql.parquet.compression.codec': 'snappy',  # OPTIMIZATION: Snappy compression
     },
-    application_args=sample_args,  # Поддержка режима выборки через Airflow Variables
+    application_args=sample_args,  # Support sample mode via Airflow Variables
     py_files='/lessons/scripts/geo_utils.py',
     driver_memory='4g',
     executor_memory='4g',
@@ -117,7 +117,7 @@ update_user_geo_report = SparkSubmitOperator(
     dag=dag,
 )
 
-# Задача 3: Обновление zone_mart
+# Task 3: Refresh zone_mart
 update_zone_mart = SparkSubmitOperator(
     task_id='update_zone_mart',
     application='/lessons/scripts/zone_mart.py',
@@ -126,9 +126,9 @@ update_zone_mart = SparkSubmitOperator(
     conf={
         'spark.sql.adaptive.enabled': 'true',
         'spark.sql.shuffle.partitions': '20',  # Reduced from 200 for 1.5GB dataset
-        'spark.sql.parquet.compression.codec': 'snappy',  # ОПТИМИЗАЦИЯ: Snappy compression
+        'spark.sql.parquet.compression.codec': 'snappy',  # OPTIMIZATION: Snappy compression
     },
-    application_args=sample_args,  # Поддержка режима выборки через Airflow Variables
+    application_args=sample_args,  # Support sample mode via Airflow Variables
     py_files='/lessons/scripts/geo_utils.py',
     driver_memory='4g',
     executor_memory='4g',
@@ -138,7 +138,7 @@ update_zone_mart = SparkSubmitOperator(
     dag=dag,
 )
 
-# Задача 4: Обновление friend_recommendations
+# Task 4: Refresh friend_recommendations
 update_friend_recommendations = SparkSubmitOperator(
     task_id='update_friend_recommendations',
     application='/lessons/scripts/friend_recommendations.py',
@@ -147,9 +147,9 @@ update_friend_recommendations = SparkSubmitOperator(
     conf={
         'spark.sql.adaptive.enabled': 'true',
         'spark.sql.shuffle.partitions': '20',  # Reduced from 200 for 1.5GB dataset
-        'spark.sql.parquet.compression.codec': 'snappy',  # ОПТИМИЗАЦИЯ: Snappy compression
+        'spark.sql.parquet.compression.codec': 'snappy',  # OPTIMIZATION: Snappy compression
     },
-    application_args=sample_args,  # Поддержка режима выборки через Airflow Variables
+    application_args=sample_args,  # Support sample mode via Airflow Variables
     py_files='/lessons/scripts/geo_utils.py',
     driver_memory='4g',
     executor_memory='4g',
@@ -159,7 +159,7 @@ update_friend_recommendations = SparkSubmitOperator(
     dag=dag,
 )
 
-# Конец DAG - логирование
+# DAG end - logging
 end = PythonOperator(
     task_id='end',
     python_callable=log_end,
@@ -167,11 +167,11 @@ end = PythonOperator(
     dag=dag,
 )
 
-# Определяем последовательность выполнения
-# ОПТИМИЗАЦИЯ: Сначала создаем ODS слой (события с городами),
-# затем все витрины читают из ODS вместо RAW
-# start → create_ods_layer → [user_geo_report, zone_mart, friend_recommendations] → end
+# Define execution order
+# OPTIMIZATION: first build the ODS layer (events with cities),
+# then every mart reads from ODS instead of RAW
+# start -> create_ods_layer -> [user_geo_report, zone_mart, friend_recommendations] -> end
 #
-# Витрины теперь могут выполняться параллельно, т.к. читают из ODS,
-# но выполняются последовательно для оптимизации ресурсов кластера
+# The marts could now run in parallel since they read from ODS,
+# but they execute sequentially to optimize cluster resources
 start >> create_ods_layer >> update_user_geo_report >> update_zone_mart >> update_friend_recommendations >> end

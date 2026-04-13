@@ -1,7 +1,7 @@
-# Воспользуемся официальным образом для запуска python.
+# Use the official Python image to run Python.
 FROM python:3.10
 
-# Объявляем переменные окружения как аргументы
+# Declare environment variables as build arguments
 # Kafka settings
 ARG KAFKA_HOST
 ARG KAFKA_PORT
@@ -23,25 +23,25 @@ ARG PG_WAREHOUSE_DBNAME
 ARG PG_WAREHOUSE_USER
 ARG PG_WAREHOUSE_PASSWORD
 
-# Обновим компоненты в контейнере.
+# Update components inside the container.
 RUN apt-get update -y
 
-# Копируем все файлы в контейнер.
+# Copy all files into the container.
 COPY . .
 
-# Запускаем установку зависимостей.
+# Install the Python dependencies.
 RUN pip install -r requirements.txt
 
-# Устанавливаем сертификат для подключения к ресурсам в Яндекс Облаке.
+# Install the certificate required to connect to resources in Yandex Cloud.
 RUN mkdir -p /crt
 RUN wget "https://storage.yandexcloud.net/cloud-certs/CA.pem" --output-document /crt/YandexInternalRootCA.crt
 RUN chmod 0600 /crt/YandexInternalRootCA.crt
 
-# Переходим в директорию src
+# Switch to the src directory
 WORKDIR /src
 
-# Говорим, что запускать будем python.
+# Declare that we will run Python as the entrypoint.
 ENTRYPOINT ["python"]
 
-# А именно, файл app.py в директории src.
+# Specifically, run the file app.py in the src directory.
 CMD ["app.py"]

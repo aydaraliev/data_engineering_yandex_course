@@ -1,9 +1,9 @@
 """
-Скрипт для создания витрины в разрезе зон (городов).
+Script for building the mart aggregated by zones (cities).
 
-Витрина содержит агрегированную статистику событий по городам:
-- Количество сообщений, реакций, подписок, регистраций
-- Агрегация по неделям и месяцам
+The mart contains aggregated event statistics per city:
+- Counts of messages, reactions, subscriptions, registrations
+- Aggregation by week and month
 """
 
 import sys
@@ -16,7 +16,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-# Настройка логирования
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class PerformanceMetrics:
-    """Трекинг метрик производительности."""
+    """Performance metrics tracking."""
     def __init__(self):
         self.checkpoints = {}
 
@@ -40,7 +40,7 @@ class PerformanceMetrics:
 
 
 class ZoneMart:
-    """Класс для построения витрины в разрезе зон (городов)."""
+    """Class for building the mart aggregated by zones (cities)."""
 
     def __init__(
         self,
@@ -50,13 +50,13 @@ class ZoneMart:
         sample_fraction: float = 1.0
     ):
         """
-        Инициализация.
+        Initialization.
 
         Args:
             spark: SparkSession
-            ods_path: Путь к ODS слою (events_with_cities)
-            output_path: Путь для сохранения витрины
-            sample_fraction: Доля выборки (0.0-1.0), по умолчанию 1.0 (все данные)
+            ods_path: Path to the ODS layer (events_with_cities)
+            output_path: Path for saving the mart
+            sample_fraction: Sample fraction (0.0-1.0); default 1.0 (all data)
         """
         self.spark = spark
         self.ods_path = ods_path
@@ -65,72 +65,72 @@ class ZoneMart:
         self.metrics = PerformanceMetrics()
 
     def load_data(self):
-        """Загружает данные из ODS слоя."""
-        logger.info(f"Загрузка событий из ODS: {self.ods_path}")
-        # ОПТИМИЗАЦИЯ: Читаем уже обогащенные данные из ODS вместо RAW
+        """Loads data from the ODS layer."""
+        logger.info(f"Loading events from ODS: {self.ods_path}")
+        # OPTIMIZATION: read already enriched data from ODS instead of RAW
         events_raw = self.spark.read.parquet(self.ods_path)
 
-        # Применение выборки если указано
+        # Apply sampling if requested
         if self.sample_fraction < 1.0:
-            logger.info(f"Применение выборки {self.sample_fraction} с seed=42")
+            logger.info(f"Applying sample fraction {self.sample_fraction} with seed=42")
             self.events_df = events_raw.sample(fraction=self.sample_fraction, seed=42)
         else:
             self.events_df = events_raw
 
-        logger.info("События загружены из ODS (уже обогащены городами)")
+        logger.info("Events loaded from ODS (already enriched with cities)")
 
     def get_user_last_locations(self):
         """
-        Пропускается - города уже определены в ODS слое.
+        Skipped - cities are already resolved in the ODS layer.
         """
-        logger.info("Пропуск определения позиций (уже выполнено в ODS)")
-        # ОПТИМИЗАЦИЯ: Этот шаг больше не нужен
+        logger.info("Skipping position resolution (already performed in ODS)")
+        # OPTIMIZATION: this step is no longer needed
 
     def enrich_events_with_locations(self):
         """
-        Пропускается - события уже обогащены в ODS слое.
+        Skipped - events are already enriched in the ODS layer.
         """
-        logger.info("Пропуск обогащения координатами (уже выполнено в ODS)")
-        # ОПТИМИЗАЦИЯ: Данные уже обогащены в ODS
+        logger.info("Skipping coordinate enrichment (already performed in ODS)")
+        # OPTIMIZATION: data is already enriched in ODS
         self.events_enriched = self.events_df
 
     def map_events_to_cities(self):
         """
-        Пропускается - города уже определены в ODS слое.
+        Skipped - cities are already resolved in the ODS layer.
         """
-        logger.info("Пропуск определения городов (уже выполнено в ODS)")
-        # ОПТИМИЗАЦИЯ: Города уже определены в ODS
-        # ОПТИМИЗАЦИЯ: Кэшируем т.к. используется в нескольких методах
+        logger.info("Skipping city resolution (already performed in ODS)")
+        # OPTIMIZATION: cities are already resolved in ODS
+        # OPTIMIZATION: cache since used in several methods
         self.events_with_cities = self.events_df.cache()
 
-        # Материализация кэша
+        # Materialize the cache
         events_count = self.events_with_cities.count()
-        logger.info(f"Данные закэшированы: {events_count} событий")
+        logger.info(f"Data cached: {events_count} events")
 
     def add_time_dimensions(self):
-        """Добавляет временные измерения (месяц, неделя)."""
-        logger.info("Добавление временных измерений...")
+        """Adds time dimensions (month, week)."""
+        logger.info("Adding time dimensions...")
 
         self.events_with_time = self.events_with_cities.withColumn(
             "month",
             F.trunc(F.col("event_datetime"), "month")
         ).withColumn(
             "week",
-            F.date_trunc("week", F.col("event_datetime"))  # Неделя начинается с понедельника
+            F.date_trunc("week", F.col("event_datetime"))  # Week starts on Monday
         )
 
-        logger.info("Временные измерения добавлены")
+        logger.info("Time dimensions added")
 
     def calculate_registrations(self):
         """
-        Определяет регистрации пользователей.
+        Detects user registrations.
 
-        Регистрация = первое сообщение пользователя.
-        Используем город первого сообщения.
+        Registration = the user's first message.
+        The city of the first message is used.
         """
-        logger.info("Расчет регистраций...")
+        logger.info("Calculating registrations...")
 
-        # Находим первое сообщение каждого пользователя
+        # Find each user's first message
         messages_only = self.events_with_time.filter(F.col("event_type") == "message")
 
         window_first = Window.partitionBy("user_id").orderBy("event_datetime")
@@ -142,7 +142,7 @@ class ZoneMart:
             F.col("rank") == 1
         ).withColumn(
             "event_type",
-            F.lit("user")  # Помечаем как регистрацию
+            F.lit("user")  # Mark as a registration
         ).select(
             "event_type",
             "user_id",
@@ -153,9 +153,9 @@ class ZoneMart:
             "week"
         )
 
-        logger.info(f"Найдено регистраций: {registrations.count()}")
+        logger.info(f"Registrations found: {registrations.count()}")
 
-        # Объединяем с остальными событиями
+        # Combine with the remaining events
         other_events = self.events_with_time.filter(F.col("event_type") != "message").select(
             "event_type",
             "user_id",
@@ -178,13 +178,13 @@ class ZoneMart:
 
         self.events_final = messages.union(other_events).union(registrations)
 
-        logger.info(f"Всего событий для агрегации: {self.events_final.count()}")
+        logger.info(f"Total events for aggregation: {self.events_final.count()}")
 
     def build_zone_mart(self):
-        """Строит финальную витрину в разрезе зон."""
-        logger.info("Построение витрины в разрезе зон...")
+        """Builds the final mart aggregated by zones."""
+        logger.info("Building the zone mart...")
 
-        # Агрегация по неделям
+        # Weekly aggregation
         weekly_agg = self.events_final.groupBy("week", "city_id", "city").agg(
             F.sum(F.when(F.col("event_type") == "message", 1).otherwise(0)).alias("week_message"),
             F.sum(F.when(F.col("event_type") == "reaction", 1).otherwise(0)).alias("week_reaction"),
@@ -192,7 +192,7 @@ class ZoneMart:
             F.sum(F.when(F.col("event_type") == "user", 1).otherwise(0)).alias("week_user")
         )
 
-        # Агрегация по месяцам
+        # Monthly aggregation
         monthly_agg = self.events_final.groupBy("month", "city_id", "city").agg(
             F.sum(F.when(F.col("event_type") == "message", 1).otherwise(0)).alias("month_message"),
             F.sum(F.when(F.col("event_type") == "reaction", 1).otherwise(0)).alias("month_reaction"),
@@ -200,8 +200,8 @@ class ZoneMart:
             F.sum(F.when(F.col("event_type") == "user", 1).otherwise(0)).alias("month_user")
         )
 
-        # Объединяем недельные и месячные агрегации
-        # Для каждой недели находим соответствующий месяц
+        # Combine weekly and monthly aggregations
+        # For each week find the corresponding month
         self.zone_mart_df = weekly_agg.withColumn(
             "month",
             F.trunc(F.col("week"), "month")
@@ -223,26 +223,26 @@ class ZoneMart:
             "month_user"
         ).orderBy("month", "week", "zone_id")
 
-        logger.info(f"Витрина построена: {self.zone_mart_df.count()} записей")
+        logger.info(f"Mart built: {self.zone_mart_df.count()} records")
 
     def save_mart(self):
-        """Сохраняет витрину в HDFS."""
-        logger.info(f"Сохранение витрины в: {self.output_path}")
+        """Saves the mart to HDFS."""
+        logger.info(f"Saving mart to: {self.output_path}")
 
-        # ОПТИМИЗАЦИЯ: Coalesce для оптимального количества файлов на партицию
+        # OPTIMIZATION: coalesce for the optimal number of files per partition
         self.zone_mart_df.coalesce(4).write \
             .mode("overwrite") \
             .partitionBy("month") \
             .parquet(self.output_path)
 
-        logger.info("Витрина успешно сохранена")
+        logger.info("Mart saved successfully")
 
     def show_sample(self, n=20):
-        """Показывает примеры записей из витрины."""
-        logger.info(f"\nПримеры записей витрины (первые {n}):")
+        """Shows sample records from the mart."""
+        logger.info(f"\nSample mart records (first {n}):")
         self.zone_mart_df.show(n, truncate=False)
 
-        logger.info("\nСтатистика витрины:")
+        logger.info("\nMart statistics:")
         self.zone_mart_df.select(
             F.count("*").alias("total_records"),
             F.countDistinct("zone_id").alias("unique_zones"),
@@ -253,11 +253,11 @@ class ZoneMart:
         ).show()
 
     def run(self):
-        """Выполняет полный процесс построения витрины."""
+        """Executes the full mart build process."""
         logger.info("=" * 70)
-        logger.info("НАЧАЛО ПОСТРОЕНИЯ ВИТРИНЫ В РАЗРЕЗЕ ЗОН")
+        logger.info("STARTING ZONE MART BUILD")
         if self.sample_fraction < 1.0:
-            logger.info(f"РЕЖИМ ВЫБОРКИ: {self.sample_fraction * 100}%")
+            logger.info(f"SAMPLE MODE: {self.sample_fraction * 100}%")
         logger.info("=" * 70)
 
         try:
@@ -285,49 +285,49 @@ class ZoneMart:
 
             self.show_sample()
 
-            # Вывод метрик производительности
+            # Print performance metrics
             logger.info("=" * 70)
-            logger.info("МЕТРИКИ ПРОИЗВОДИТЕЛЬНОСТИ:")
-            logger.info(f"  Загрузка данных:       {self.metrics.get_duration('start', 'load_data'):.2f}s")
-            logger.info(f"  Определение городов:   {self.metrics.get_duration('load_data', 'map_events_to_cities'):.2f}s")
-            logger.info(f"  Временные измерения:   {self.metrics.get_duration('map_events_to_cities', 'add_time_dimensions'):.2f}s")
-            logger.info(f"  Расчет регистраций:    {self.metrics.get_duration('add_time_dimensions', 'calculate_registrations'):.2f}s")
-            logger.info(f"  Построение витрины:    {self.metrics.get_duration('calculate_registrations', 'build_zone_mart'):.2f}s")
-            logger.info(f"  Сохранение:            {self.metrics.get_duration('build_zone_mart', 'save_mart'):.2f}s")
-            logger.info(f"  ОБЩЕЕ ВРЕМЯ:           {self.metrics.get_duration('start', 'save_mart'):.2f}s")
+            logger.info("PERFORMANCE METRICS:")
+            logger.info(f"  Data load:              {self.metrics.get_duration('start', 'load_data'):.2f}s")
+            logger.info(f"  City resolution:        {self.metrics.get_duration('load_data', 'map_events_to_cities'):.2f}s")
+            logger.info(f"  Time dimensions:        {self.metrics.get_duration('map_events_to_cities', 'add_time_dimensions'):.2f}s")
+            logger.info(f"  Registrations:          {self.metrics.get_duration('add_time_dimensions', 'calculate_registrations'):.2f}s")
+            logger.info(f"  Mart build:             {self.metrics.get_duration('calculate_registrations', 'build_zone_mart'):.2f}s")
+            logger.info(f"  Save:                   {self.metrics.get_duration('build_zone_mart', 'save_mart'):.2f}s")
+            logger.info(f"  TOTAL:                  {self.metrics.get_duration('start', 'save_mart'):.2f}s")
             logger.info("=" * 70)
-            logger.info("ВИТРИНА В РАЗРЕЗЕ ЗОН УСПЕШНО ПОСТРОЕНА")
+            logger.info("ZONE MART BUILT SUCCESSFULLY")
             logger.info("=" * 70)
 
             return 0
 
         except Exception as e:
-            logger.error(f"Ошибка при построении витрины: {e}", exc_info=True)
+            logger.error(f"Error while building the mart: {e}", exc_info=True)
             return 1
 
 
 def main():
-    """Основная функция."""
-    # Парсинг аргументов командной строки
-    parser = argparse.ArgumentParser(description='Построение витрины в разрезе зон (городов)')
+    """Main entry point."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Build the zone (city) mart')
     parser.add_argument('--sample', type=float, default=None,
-                       help='Доля выборки (0.0-1.0), например 0.1 для 10%%')
+                       help='Sample fraction (0.0-1.0), e.g. 0.1 for 10%%')
     args = parser.parse_args()
 
-    # Определяем sample_fraction из аргументов или переменной окружения
+    # Derive sample_fraction from argument or environment variable
     sample_fraction = args.sample if args.sample is not None else float(os.getenv('SAMPLE_FRACTION', '1.0'))
 
-    # Создаем Spark сессию
+    # Create Spark session
     spark = SparkSession.builder \
         .appName("ZoneMart") \
         .config("spark.sql.adaptive.enabled", "true") \
         .getOrCreate()
 
-    # ОПТИМИЗАЦИЯ: Читаем из ODS вместо RAW
-    ods_path = "/user/ajdaral1ev/project/geo/ods/events_with_cities"
-    output_path = "/user/ajdaral1ev/project/geo/mart/zone_mart"
+    # OPTIMIZATION: read from ODS instead of RAW
+    ods_path = "/user/student/project/geo/ods/events_with_cities"
+    output_path = "/user/student/project/geo/mart/zone_mart"
 
-    # Создаем и запускаем процесс
+    # Create and launch the process
     mart_builder = ZoneMart(
         spark=spark,
         ods_path=ods_path,

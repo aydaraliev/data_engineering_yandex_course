@@ -1,11 +1,11 @@
 """
-Витрина для рекомендации друзей.
+Friend recommendations mart.
 
-Логика:
-- Пользователи подписаны на один канал
-- Ранее никогда не переписывались
-- Расстояние между ними <= 1 км
-- Пары должны быть уникальными (user_left < user_right)
+Logic:
+- Users subscribed to the same channel
+- They have never exchanged messages before
+- Distance between them <= 1 km
+- Pairs must be unique (user_left < user_right)
 """
 
 import sys
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class PerformanceMetrics:
-    """Трекинг метрик производительности."""
+    """Performance metrics tracking."""
     def __init__(self):
         self.checkpoints = {}
 
@@ -42,7 +42,7 @@ class PerformanceMetrics:
 
 
 class FriendRecommendations:
-    """Класс для построения витрины рекомендаций друзей."""
+    """Class for building the friend recommendations mart."""
 
     def __init__(
         self,
@@ -52,13 +52,13 @@ class FriendRecommendations:
         sample_fraction: float = 1.0
     ):
         """
-        Инициализация.
+        Initialization.
 
         Args:
             spark: SparkSession
-            ods_path: Путь к ODS слою (events_with_cities)
-            output_path: Путь для сохранения витрины
-            sample_fraction: Доля выборки (0.0-1.0), по умолчанию 1.0 (все данные)
+            ods_path: Path to the ODS layer (events_with_cities)
+            output_path: Path for saving the mart
+            sample_fraction: Sample fraction (0.0-1.0); default 1.0 (all data)
         """
         self.spark = spark
         self.ods_path = ods_path
@@ -68,28 +68,28 @@ class FriendRecommendations:
         self.metrics = PerformanceMetrics()
 
     def load_data(self):
-        """Загружает данные из ODS слоя."""
-        logger.info(f"Загрузка событий из ODS: {self.ods_path}")
-        # ОПТИМИЗАЦИЯ: Читаем уже обогащенные данные из ODS вместо RAW
+        """Loads data from the ODS layer."""
+        logger.info(f"Loading events from ODS: {self.ods_path}")
+        # OPTIMIZATION: read already enriched data from ODS instead of RAW
         events_raw = self.spark.read.parquet(self.ods_path)
 
-        # Применение выборки если указано
+        # Apply sampling if requested
         if self.sample_fraction < 1.0:
-            logger.info(f"Применение выборки {self.sample_fraction} с seed=42")
+            logger.info(f"Applying sample fraction {self.sample_fraction} with seed=42")
             events_sampled = events_raw.sample(fraction=self.sample_fraction, seed=42)
         else:
             events_sampled = events_raw
 
-        # ОПТИМИЗАЦИЯ: Кэшируем т.к. используется в 3 методах (subscriptions, locations, communications)
+        # OPTIMIZATION: cache since it is used in 3 methods (subscriptions, locations, communications)
         self.events_df = events_sampled.cache()
 
-        # Материализация кэша
+        # Materialize the cache
         events_count = self.events_df.count()
-        logger.info(f"События загружены из ODS и закэшированы: {events_count} записей")
+        logger.info(f"Events loaded from ODS and cached: {events_count} records")
 
     def get_user_subscriptions(self):
-        """Получает подписки пользователей на каналы."""
-        logger.info("Извлечение подписок пользователей...")
+        """Retrieves user channel subscriptions."""
+        logger.info("Extracting user subscriptions...")
 
         subscriptions = self.events_df.filter(
             F.col("event_type") == "subscription"
@@ -98,15 +98,15 @@ class FriendRecommendations:
             F.col("event.subscription_channel").alias("channel_id")
         ).distinct()
 
-        # logger.info(f"Найдено уникальных подписок: {subscriptions.count()}")  # Commented for performance
+        # logger.info(f"Unique subscriptions found: {subscriptions.count()}")  # Commented for performance
 
         self.subscriptions_df = subscriptions
 
     def get_user_last_locations(self):
-        """Получает последнюю геопозицию для каждого пользователя из ODS."""
-        logger.info("Получение последних позиций пользователей из ODS...")
+        """Retrieves the last geolocation for each user from ODS."""
+        logger.info("Fetching last user positions from ODS...")
 
-        # ОПТИМИЗАЦИЯ: Города уже определены в ODS, просто берем последнюю позицию
+        # OPTIMIZATION: cities are already resolved in ODS, just pick the last position
         messages = self.events_df.filter(
             F.col("event_type") == "message"
         )
@@ -127,19 +127,19 @@ class FriendRecommendations:
             "timezone"
         )
 
-        logger.info("Последние позиции пользователей получены из ODS")
+        logger.info("Last user positions retrieved from ODS")
 
     def map_users_to_cities(self):
-        """Пропускается - города уже определены в ODS слое."""
-        logger.info("Пропуск определения городов (уже выполнено в ODS)")
-        # ОПТИМИЗАЦИЯ: Города уже определены в ODS
+        """Skipped - cities are already resolved in the ODS layer."""
+        logger.info("Skipping city resolution (already performed in ODS)")
+        # OPTIMIZATION: cities already resolved in ODS
         self.users_with_cities = self.user_locations_df
-        logger.info(f"Распределение по городам:")
+        logger.info(f"City distribution:")
         self.users_with_cities.groupBy("city").count().orderBy(F.desc("count")).show(10)
 
     def get_user_communications(self):
-        """Получает пары пользователей, которые переписывались."""
-        logger.info("Извлечение пар пользователей, которые переписывались...")
+        """Retrieves pairs of users who have exchanged messages."""
+        logger.info("Extracting pairs of users who have communicated...")
 
         messages = self.events_df.filter(
             F.col("event_type") == "message"
@@ -150,9 +150,9 @@ class FriendRecommendations:
             F.col("user_to").isNotNull()
         )
 
-        # logger.info(f"Найдено сообщений между пользователями: {messages.count()}")  # Commented for performance
+        # logger.info(f"Messages between users found: {messages.count()}")  # Commented for performance
 
-        # Создаем уникальные пары (порядок не важен)
+        # Build unique pairs (order does not matter)
         self.communicated_pairs = messages.withColumn(
             "user_left",
             F.when(F.col("user_from") < F.col("user_to"), F.col("user_from"))
@@ -166,47 +166,47 @@ class FriendRecommendations:
             "user_right"
         ).distinct()
 
-        # logger.info(f"Уникальных пар, которые переписывались: {self.communicated_pairs.count()}")  # Commented for performance
+        # logger.info(f"Unique pairs that have communicated: {self.communicated_pairs.count()}")  # Commented for performance
 
     def find_channel_peers(self):
-        """Находит пары пользователей, подписанных на один канал."""
-        logger.info("Поиск пар пользователей с общими подписками...")
+        """Finds pairs of users subscribed to the same channel."""
+        logger.info("Looking for pairs of users with shared subscriptions...")
 
-        # Self-join: находим пары пользователей в одном канале
+        # Self-join: find user pairs in the same channel
         channel_pairs = self.subscriptions_df.alias("s1").join(
             self.subscriptions_df.alias("s2"),
             on=F.col("s1.channel_id") == F.col("s2.channel_id"),
             how="inner"
         ).filter(
-            F.col("s1.user_id") < F.col("s2.user_id")  # Избегаем дублей и self-pairs
+            F.col("s1.user_id") < F.col("s2.user_id")  # Avoid duplicates and self-pairs
         ).select(
             F.col("s1.user_id").alias("user_left"),
             F.col("s2.user_id").alias("user_right"),
             F.col("s1.channel_id").alias("channel_id")
         ).distinct()
 
-        # logger.info(f"Пар с общими подписками: {channel_pairs.count()}")  # Commented for performance
+        # logger.info(f"Pairs with shared subscriptions: {channel_pairs.count()}")  # Commented for performance
 
         self.channel_pairs_df = channel_pairs
 
     def filter_non_communicated(self):
-        """Фильтрует пары, которые никогда не переписывались."""
-        logger.info("Фильтрация пар, которые никогда не переписывались...")
+        """Filters pairs that have never communicated."""
+        logger.info("Filtering pairs that have never communicated...")
 
-        # LEFT ANTI JOIN: оставляем только те пары, которых НЕТ в communicated_pairs
+        # LEFT ANTI JOIN: keep only pairs that are NOT in communicated_pairs
         self.non_communicated_pairs = self.channel_pairs_df.join(
             self.communicated_pairs,
             on=["user_left", "user_right"],
             how="left_anti"
         )
 
-        # logger.info(f"Пар, которые не переписывались: {self.non_communicated_pairs.count()}")  # Commented for performance
+        # logger.info(f"Pairs that have not communicated: {self.non_communicated_pairs.count()}")  # Commented for performance
 
     def enrich_with_locations(self):
-        """Обогащает пары координатами обоих пользователей."""
-        logger.info("Обогащение пар координатами пользователей...")
+        """Enriches pairs with coordinates of both users."""
+        logger.info("Enriching pairs with user coordinates...")
 
-        # Присоединяем координаты для user_left
+        # Attach coordinates for user_left
         pairs_with_left = self.non_communicated_pairs.join(
             self.users_with_cities.select(
                 F.col("user_id").alias("user_left"),
@@ -220,9 +220,9 @@ class FriendRecommendations:
             how="inner"
         )
 
-        # logger.info(f"Пар с координатами user_left: {pairs_with_left.count()}")  # Commented for performance
+        # logger.info(f"Pairs with user_left coordinates: {pairs_with_left.count()}")  # Commented for performance
 
-        # Присоединяем координаты для user_right
+        # Attach coordinates for user_right
         pairs_with_both = pairs_with_left.join(
             self.users_with_cities.select(
                 F.col("user_id").alias("user_right"),
@@ -234,20 +234,20 @@ class FriendRecommendations:
             how="inner"
         )
 
-        # logger.info(f"Пар с координатами обоих: {pairs_with_both.count()}")  # Commented for performance
+        # logger.info(f"Pairs with coordinates for both users: {pairs_with_both.count()}")  # Commented for performance
 
-        # Фильтруем пары из одного города
+        # Filter pairs in the same city
         self.pairs_with_coords = pairs_with_both.filter(
             F.col("zone_id") == F.col("city_id_right")
         ).drop("city_id_right")
 
-        # logger.info(f"Пар из одного города: {self.pairs_with_coords.count()}")  # Commented for performance
+        # logger.info(f"Pairs in the same city: {self.pairs_with_coords.count()}")  # Commented for performance
 
     def calculate_distances(self):
-        """Вычисляет расстояние между пользователями."""
-        logger.info("Расчет расстояний между пользователями...")
+        """Computes the distance between users."""
+        logger.info("Computing distances between users...")
 
-        # Используем Haversine формулу
+        # Use the Haversine formula
         distance_km = calculate_haversine_distance(
             "lat_left", "lon_left",
             "lat_right", "lon_right"
@@ -258,7 +258,7 @@ class FriendRecommendations:
             distance_km
         )
 
-        logger.info("Статистика расстояний:")
+        logger.info("Distance statistics:")
         self.pairs_with_distance.select(
             F.min("distance_km").alias("min_km"),
             F.avg("distance_km").alias("avg_km"),
@@ -267,29 +267,29 @@ class FriendRecommendations:
         ).show()
 
     def filter_by_distance(self, max_distance_km: float = 1.0):
-        """Фильтрует пары по расстоянию."""
-        logger.info(f"Фильтрация пар с расстоянием <= {max_distance_km} км...")
+        """Filters pairs by distance."""
+        logger.info(f"Filtering pairs with distance <= {max_distance_km} km...")
 
         self.close_pairs = self.pairs_with_distance.filter(
             F.col("distance_km") <= max_distance_km
         )
 
-        # logger.info(f"Пар в радиусе {max_distance_km} км: {self.close_pairs.count()}")  # Commented for performance
+        # logger.info(f"Pairs within {max_distance_km} km: {self.close_pairs.count()}")  # Commented for performance
 
     def calculate_local_time(self):
-        """Вычисляет локальное время для каждой пары."""
-        logger.info("Расчет локального времени...")
+        """Computes the local time for each pair."""
+        logger.info("Computing local time...")
 
         self.recommendations_with_time = self.close_pairs.withColumn(
             "local_time",
             F.from_utc_timestamp(self.processed_dttm, F.col("timezone"))
         )
 
-        logger.info("Локальное время добавлено")
+        logger.info("Local time added")
 
     def build_recommendations(self):
-        """Строит финальную витрину рекомендаций."""
-        logger.info("Построение витрины рекомендаций...")
+        """Builds the final recommendations mart."""
+        logger.info("Building the recommendations mart...")
 
         self.recommendations_df = self.recommendations_with_time.select(
             "user_left",
@@ -299,30 +299,30 @@ class FriendRecommendations:
             "local_time"
         ).distinct()
 
-        # logger.info(f"Построена витрина: {self.recommendations_df.count()} рекомендаций")  # Commented for performance
+        # logger.info(f"Mart built: {self.recommendations_df.count()} recommendations")  # Commented for performance
 
     def save_recommendations(self):
-        """Сохраняет витрину в HDFS."""
-        logger.info(f"Сохранение витрины в: {self.output_path}")
+        """Saves the mart to HDFS."""
+        logger.info(f"Saving mart to: {self.output_path}")
 
-        # ОПТИМИЗАЦИЯ: Coalesce для уменьшения количества мелких файлов
+        # OPTIMIZATION: coalesce to reduce the number of small files
         self.recommendations_df.coalesce(2).write \
             .mode("overwrite") \
             .parquet(self.output_path)
 
-        logger.info("Витрина успешно сохранена")
+        logger.info("Mart saved successfully")
 
     def show_sample(self, n=20):
-        """Показывает примеры рекомендаций."""
-        logger.info(f"\nПримеры рекомендаций (первые {n}):")
+        """Shows sample recommendations."""
+        logger.info(f"\nSample recommendations (first {n}):")
         self.recommendations_df.show(n, truncate=False)
 
-        logger.info("\nСтатистика по зонам:")
+        logger.info("\nStatistics by zone:")
         self.recommendations_df.groupBy("zone_id").agg(
             F.count("*").alias("recommendations_count")
         ).orderBy(F.desc("recommendations_count")).show(10)
 
-        logger.info("\nОбщая статистика:")
+        logger.info("\nOverall statistics:")
         self.recommendations_df.select(
             F.count("*").alias("total_recommendations"),
             F.countDistinct("user_left").alias("unique_users_left"),
@@ -331,11 +331,11 @@ class FriendRecommendations:
         ).show(truncate=False)
 
     def run(self):
-        """Выполняет полный процесс построения витрины."""
+        """Executes the full mart build process."""
         logger.info("=" * 70)
-        logger.info("НАЧАЛО ПОСТРОЕНИЯ ВИТРИНЫ РЕКОМЕНДАЦИЙ ДРУЗЕЙ")
+        logger.info("STARTING FRIEND RECOMMENDATIONS MART BUILD")
         if self.sample_fraction < 1.0:
-            logger.info(f"РЕЖИМ ВЫБОРКИ: {self.sample_fraction * 100}%")
+            logger.info(f"SAMPLE MODE: {self.sample_fraction * 100}%")
         logger.info("=" * 70)
 
         try:
@@ -374,39 +374,39 @@ class FriendRecommendations:
 
             self.show_sample()
 
-            # Вывод метрик производительности
+            # Print performance metrics
             logger.info("=" * 70)
-            logger.info("МЕТРИКИ ПРОИЗВОДИТЕЛЬНОСТИ:")
-            logger.info(f"  Загрузка данных:       {self.metrics.get_duration('start', 'load_data'):.2f}s")
-            logger.info(f"  Подписки:              {self.metrics.get_duration('load_data', 'get_user_subscriptions'):.2f}s")
-            logger.info(f"  Позиции пользователей: {self.metrics.get_duration('get_user_subscriptions', 'map_users_to_cities'):.2f}s")
-            logger.info(f"  История переписки:     {self.metrics.get_duration('map_users_to_cities', 'get_user_communications'):.2f}s")
-            logger.info(f"  Поиск пар (каналы):    {self.metrics.get_duration('get_user_communications', 'find_channel_peers'):.2f}s")
-            logger.info(f"  Обогащение координатами:{self.metrics.get_duration('find_channel_peers', 'enrich_with_locations'):.2f}s")
-            logger.info(f"  Расчет расстояний:     {self.metrics.get_duration('enrich_with_locations', 'calculate_distances'):.2f}s")
-            logger.info(f"  Построение рекомендаций:{self.metrics.get_duration('calculate_distances', 'build_recommendations'):.2f}s")
-            logger.info(f"  Сохранение:            {self.metrics.get_duration('build_recommendations', 'save_recommendations'):.2f}s")
-            logger.info(f"  ОБЩЕЕ ВРЕМЯ:           {self.metrics.get_duration('start', 'save_recommendations'):.2f}s")
+            logger.info("PERFORMANCE METRICS:")
+            logger.info(f"  Data load:              {self.metrics.get_duration('start', 'load_data'):.2f}s")
+            logger.info(f"  Subscriptions:          {self.metrics.get_duration('load_data', 'get_user_subscriptions'):.2f}s")
+            logger.info(f"  User positions:         {self.metrics.get_duration('get_user_subscriptions', 'map_users_to_cities'):.2f}s")
+            logger.info(f"  Communication history:  {self.metrics.get_duration('map_users_to_cities', 'get_user_communications'):.2f}s")
+            logger.info(f"  Channel pair search:    {self.metrics.get_duration('get_user_communications', 'find_channel_peers'):.2f}s")
+            logger.info(f"  Coordinate enrichment:  {self.metrics.get_duration('find_channel_peers', 'enrich_with_locations'):.2f}s")
+            logger.info(f"  Distance calculation:   {self.metrics.get_duration('enrich_with_locations', 'calculate_distances'):.2f}s")
+            logger.info(f"  Build recommendations:  {self.metrics.get_duration('calculate_distances', 'build_recommendations'):.2f}s")
+            logger.info(f"  Save:                   {self.metrics.get_duration('build_recommendations', 'save_recommendations'):.2f}s")
+            logger.info(f"  TOTAL:                  {self.metrics.get_duration('start', 'save_recommendations'):.2f}s")
             logger.info("=" * 70)
-            logger.info("ВИТРИНА РЕКОМЕНДАЦИЙ ДРУЗЕЙ УСПЕШНО ПОСТРОЕНА")
+            logger.info("FRIEND RECOMMENDATIONS MART BUILT SUCCESSFULLY")
             logger.info("=" * 70)
 
             return 0
 
         except Exception as e:
-            logger.error(f"Ошибка при построении витрины: {e}", exc_info=True)
+            logger.error(f"Error while building the mart: {e}", exc_info=True)
             return 1
 
 
 def main():
-    """Основная функция."""
-    # Парсинг аргументов командной строки
-    parser = argparse.ArgumentParser(description='Построение витрины рекомендаций друзей')
+    """Main entry point."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Build the friend recommendations mart')
     parser.add_argument('--sample', type=float, default=None,
-                       help='Доля выборки (0.0-1.0), например 0.1 для 10%%')
+                       help='Sample fraction (0.0-1.0), e.g. 0.1 for 10%%')
     args = parser.parse_args()
 
-    # Определяем sample_fraction из аргументов или переменной окружения
+    # Derive sample_fraction from argument or environment variable
     sample_fraction = args.sample if args.sample is not None else float(os.getenv('SAMPLE_FRACTION', '1.0'))
 
     spark = SparkSession.builder \
@@ -414,9 +414,9 @@ def main():
         .config("spark.sql.adaptive.enabled", "true") \
         .getOrCreate()
 
-    # ОПТИМИЗАЦИЯ: Читаем из ODS вместо RAW
-    ods_path = "/user/ajdaral1ev/project/geo/ods/events_with_cities"
-    output_path = "/user/ajdaral1ev/project/geo/mart/friend_recommendations"
+    # OPTIMIZATION: read from ODS instead of RAW
+    ods_path = "/user/student/project/geo/ods/events_with_cities"
+    output_path = "/user/student/project/geo/mart/friend_recommendations"
 
     builder = FriendRecommendations(
         spark=spark,

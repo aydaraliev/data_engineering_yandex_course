@@ -1,4 +1,4 @@
--- Добавить внешние ключи в таблицу фактов для связи с измерениями продуктов и заказов
+-- Add foreign keys on the fact table linking to the products and orders dimensions
 ALTER TABLE dds.fct_product_sales
     ADD CONSTRAINT fct_product_sales_product_id_fkey
         FOREIGN KEY (product_id) REFERENCES dds.dm_products (id);

@@ -1,6 +1,6 @@
 """
-Утилиты для работы с географическими данными.
-Содержит функции для расчета расстояний и определения городов по координатам.
+Utilities for working with geographical data.
+Contains functions for distance calculation and resolving cities by coordinates.
 """
 
 from pyspark.sql import DataFrame
@@ -16,37 +16,37 @@ def calculate_haversine_distance(
     radius_km: float = 6371.0
 ) -> F.Column:
     """
-    Вычисляет расстояние между двумя точками на сфере по формуле гаверсинуса.
+    Computes the distance between two points on a sphere using the haversine formula.
 
-    Формула:
-    d = 2r * arcsin(sqrt(sin²((φ2-φ1)/2) + cos(φ1) * cos(φ2) * sin²((λ2-λ1)/2)))
+    Formula:
+    d = 2r * arcsin(sqrt(sin^2((phi2-phi1)/2) + cos(phi1) * cos(phi2) * sin^2((lambda2-lambda1)/2)))
 
-    где:
-    - φ1, φ2 — широты точек в радианах
-    - λ1, λ2 — долготы точек в радианах
-    - r — радиус сферы (Земли), примерно 6371 км
+    where:
+    - phi1, phi2 - latitudes of the points in radians
+    - lambda1, lambda2 - longitudes of the points in radians
+    - r - radius of the sphere (Earth), approximately 6371 km
 
     Args:
-        lat1_col: Название колонки с широтой первой точки (в градусах)
-        lon1_col: Название колонки с долготой первой точки (в градусах)
-        lat2_col: Название колонки с широтой второй точки (в градусах)
-        lon2_col: Название колонки с долготой второй точки (в градусах)
-        radius_km: Радиус Земли в километрах
+        lat1_col: Column name with latitude of the first point (in degrees)
+        lon1_col: Column name with longitude of the first point (in degrees)
+        lat2_col: Column name with latitude of the second point (in degrees)
+        lon2_col: Column name with longitude of the second point (in degrees)
+        radius_km: Earth radius in kilometres
 
     Returns:
-        Column: Расстояние между точками в километрах
+        Column: Distance between the points in kilometres
     """
-    # Конвертация градусов в радианы
+    # Convert degrees to radians
     lat1_rad = F.radians(F.col(lat1_col))
     lon1_rad = F.radians(F.col(lon1_col))
     lat2_rad = F.radians(F.col(lat2_col))
     lon2_rad = F.radians(F.col(lon2_col))
 
-    # Разница координат
+    # Coordinate differences
     delta_lat = lat2_rad - lat1_rad
     delta_lon = lon2_rad - lon1_rad
 
-    # Формула гаверсинуса
+    # Haversine formula
     a = (
         F.pow(F.sin(delta_lat / F.lit(2)), 2) +
         F.cos(lat1_rad) * F.cos(lat2_rad) * F.pow(F.sin(delta_lon / F.lit(2)), 2)
@@ -69,27 +69,27 @@ def find_nearest_city(
     city_name_col: str = "city"
 ) -> DataFrame:
     """
-    Определяет ближайший город для каждого события на основе координат.
+    Determines the nearest city for each event based on coordinates.
 
-    Алгоритм:
-    1. Кросс-джойн событий и городов
-    2. Расчет расстояния от события до каждого города
-    3. Выбор города с минимальным расстоянием
+    Algorithm:
+    1. Cross-join events and cities
+    2. Compute the distance from the event to each city
+    3. Pick the city with the minimum distance
 
     Args:
-        events_df: DataFrame с событиями и координатами
-        cities_df: DataFrame со справочником городов и их координатами
-        event_lat_col: Название колонки с широтой события
-        event_lon_col: Название колонки с долготой события
-        city_lat_col: Название колонки с широтой города
-        city_lon_col: Название колонки с долготой города
-        city_name_col: Название колонки с названием города
+        events_df: DataFrame with events and coordinates
+        cities_df: DataFrame with the city dictionary and their coordinates
+        event_lat_col: Column name with the event latitude
+        event_lon_col: Column name with the event longitude
+        city_lat_col: Column name with the city latitude
+        city_lon_col: Column name with the city longitude
+        city_name_col: Column name with the city name
 
     Returns:
-        DataFrame: События с добавленной колонкой city и distance_km
+        DataFrame: Events with added city and distance_km columns
     """
-    # Переименовываем колонки городов для избежания конфликтов
-    # Добавляем timezone на основе города (все города в Австралии)
+    # Rename city columns to avoid conflicts
+    # Add timezone based on the city (all cities are in Australia)
     cities_renamed = cities_df.select(
         F.col(city_name_col).alias("city"),
         F.col(city_lat_col).alias("city_lat"),
@@ -97,7 +97,7 @@ def find_nearest_city(
         F.col("id").alias("city_id") if "id" in cities_df.columns else F.lit(None).alias("city_id")
     ).withColumn(
         "timezone",
-        # Определяем timezone на основе города или координат
+        # Resolve timezone from city or coordinates
         F.when(F.col("city").isin(["Sydney", "Melbourne", "Brisbane", "Canberra", "Gold Coast", "Newcastle", "Wollongong", "Cranbourne"]),
                "Australia/Sydney")
         .when(F.col("city").isin(["Perth"]),
@@ -106,14 +106,14 @@ def find_nearest_city(
               "Australia/Adelaide")
         .when(F.col("city").isin(["Darwin"]),
               "Australia/Darwin")
-        .otherwise("Australia/Sydney")  # По умолчанию Sydney для всех остальных
+        .otherwise("Australia/Sydney")  # Default to Sydney for everyone else
     )
 
-    # Кросс-джойн событий с городами
-    # ОПТИМИЗАЦИЯ: Используем broadcast для маленькой таблицы городов (24 записи)
+    # Cross-join events with cities
+    # OPTIMIZATION: use broadcast for the small cities table (24 rows)
     events_with_cities = events_df.crossJoin(F.broadcast(cities_renamed))
 
-    # Расчет расстояния до каждого города
+    # Compute distance to each city
     events_with_distances = events_with_cities.withColumn(
         "distance_km",
         calculate_haversine_distance(
@@ -124,28 +124,28 @@ def find_nearest_city(
         )
     )
 
-    # Для каждого события находим город с минимальным расстоянием
-    # Используем window функцию для ранжирования
+    # For each event find the city with the minimum distance
+    # Use a window function for ranking
     from pyspark.sql.window import Window
 
-    # Предполагаем, что у событий есть уникальный идентификатор или комбинация полей
-    # Создаем временный id для группировки, если его нет
+    # Assume the events have a unique identifier or combination of fields
+    # Create a temporary id for grouping if missing
     if "event_id" not in events_with_distances.columns:
         events_with_distances = events_with_distances.withColumn(
             "event_id",
             F.monotonically_increasing_id()
         )
 
-    # Окно для ранжирования по расстоянию для каждого события
+    # Window for ranking by distance per event
     window_spec = Window.partitionBy("event_id").orderBy(F.col("distance_km").asc())
 
-    # Добавляем ранг
+    # Add rank
     events_ranked = events_with_distances.withColumn(
         "rank",
         F.row_number().over(window_spec)
     )
 
-    # Оставляем только ближайший город (rank = 1)
+    # Keep only the nearest city (rank = 1)
     nearest_cities = events_ranked.filter(F.col("rank") == 1).drop("rank", "city_lat", "city_lon")
 
     return nearest_cities
@@ -153,13 +153,13 @@ def find_nearest_city(
 
 def get_city_with_timezone(cities_df: DataFrame) -> DataFrame:
     """
-    Подготавливает справочник городов с информацией о timezone.
+    Prepares the cities dictionary with timezone information.
 
     Args:
-        cities_df: DataFrame с городами
+        cities_df: DataFrame with cities
 
     Returns:
-        DataFrame: Обработанный справочник городов
+        DataFrame: Processed cities dictionary
     """
     return cities_df.select(
         F.col("id").alias("city_id"),

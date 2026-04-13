@@ -23,7 +23,7 @@ def get_vertica_connection():
 
 def load_global_metrics(**context):
     execution_date = context['ds']
-    logging.info(f"Загрузка метрик за дату: {execution_date}")
+    logging.info(f"Loading metrics for date: {execution_date}")
 
     conn = get_vertica_connection()
     cur = conn.cursor()
@@ -86,11 +86,11 @@ def load_global_metrics(**context):
         row_count = cur.fetchone()[0]
 
         conn.commit()
-        logging.info(f"Загружено {row_count} строк в витрину за {execution_date}")
+        logging.info(f"Loaded {row_count} rows into the mart for {execution_date}")
 
     except Exception as e:
         conn.rollback()
-        logging.error(f"Ошибка загрузки в DWH: {e}")
+        logging.error(f"DWH load error: {e}")
         raise
     finally:
         cur.close()

@@ -52,7 +52,7 @@ class DdsEtlSettingsRepository:
 
 
 def ensure_dm_users_table(conn) -> None:
-    # dm_users — обычное измерение, можно оставлять уникальность по business id
+    # dm_users is a regular dimension; uniqueness on the business id is fine
     with conn.cursor() as cur:
         cur.execute("CREATE SCHEMA IF NOT EXISTS dds;")
         cur.execute(
@@ -74,7 +74,7 @@ def ensure_dm_users_table(conn) -> None:
 
 
 def ensure_dm_restaurants_table(conn) -> None:
-    # dm_restaurants — SCD2, уникальный индекс по restaurant_id НЕ нужен
+    # dm_restaurants is SCD2 - a unique index on restaurant_id must NOT exist
     with conn.cursor() as cur:
         cur.execute("CREATE SCHEMA IF NOT EXISTS dds;")
         cur.execute(
@@ -88,12 +88,12 @@ def ensure_dm_restaurants_table(conn) -> None:
             );
             """
         )
-        # если раньше создавали уникальный индекс — удаляем
+        # drop any previously created unique index
         cur.execute("DROP INDEX IF EXISTS dds.ux_dm_restaurants_restaurant_id;")
 
 
 def ensure_dm_products_table(conn) -> None:
-    # dm_products — SCD2, уникальный индекс по product_id НЕ нужен
+    # dm_products is SCD2 - a unique index on product_id must NOT exist
     with conn.cursor() as cur:
         cur.execute("CREATE SCHEMA IF NOT EXISTS dds;")
         cur.execute(
@@ -112,7 +112,7 @@ def ensure_dm_products_table(conn) -> None:
             );
             """
         )
-        # если раньше создавали уникальный индекс — удаляем
+        # drop any previously created unique index
         cur.execute("DROP INDEX IF EXISTS dds.ux_dm_products_product_id;")
 
 
@@ -138,7 +138,7 @@ def ensure_dm_timestamps_table(conn) -> None:
             );
             """
         )
-        # удобно для upsert таймштампов
+        # convenient for timestamp upserts
         cur.execute(
             """
             CREATE UNIQUE INDEX IF NOT EXISTS ux_dm_timestamps_ts
@@ -369,7 +369,7 @@ def _parse_dt(value: Any) -> Optional[datetime]:
     if isinstance(value, (int, float)):
         try:
             ts_val = float(value)
-            # Mongo often stores milliseconds since epoch — normalise to seconds for datetime.fromtimestamp.
+            # Mongo often stores milliseconds since epoch — normalize to seconds for datetime.fromtimestamp.
             if ts_val > 1e12:
                 ts_val /= 1000.0
             return datetime.fromtimestamp(ts_val)
@@ -562,7 +562,7 @@ def scd2_upsert_dm_restaurants(conn, restaurants: List[Dict[str, Any]]) -> None:
                     """,
                     {"rid": rid, "rname": rname, "af": af, "eot": END_OF_TIME},
                 )
-            # если имя то же — новую версию не пишем
+            # if the name is unchanged, do not write a new version
 
 
 def scd2_upsert_dm_products(conn, products: List[Dict[str, Any]]) -> None:
@@ -570,7 +570,7 @@ def scd2_upsert_dm_products(conn, products: List[Dict[str, Any]]) -> None:
         return
 
     with conn.cursor() as cur:
-        # Подтягиваем ВСЕ версии ресторанов для маппинга по времени
+        # Pull ALL restaurant versions for time-based mapping
         rest_ids = list({p["restaurant_src_id"] for p in products})
         cur.execute(
             """

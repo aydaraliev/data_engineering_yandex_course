@@ -1,5 +1,5 @@
 DROP TABLE IF EXISTS dds.fct_product_sales;
--- Создание таблицы фактов продаж fct_product_sales в схеме dds
+-- Create the sales fact table fct_product_sales in the dds schema
 CREATE TABLE IF NOT EXISTS dds.fct_product_sales
 (
     id            SERIAL PRIMARY KEY,

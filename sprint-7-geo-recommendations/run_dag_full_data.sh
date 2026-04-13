@@ -1,150 +1,150 @@
 #!/bin/bash
 set -e
 
-# Константы подключения
+# Connection constants
 SSH_KEY="$HOME/.ssh/ssh_private_key"
-SSH_USER="yc-user"
-SSH_HOST="158.160.159.232"
+SSH_USER="cluster-user"
+SSH_HOST="10.0.0.10"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no"
 
 DAG_NAME="geo_marts_update"
 LOG_FILE="dag_run_full_$(date +%Y%m%d_%H%M%S).log"
 
 echo "==================================================" | tee $LOG_FILE
-echo "Запуск DAG '$DAG_NAME' на 100% данных" | tee -a $LOG_FILE
+echo "Running DAG '$DAG_NAME' on 100% of the data" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
 
-# Функция для выполнения команд Airflow в Docker
+# Function for running Airflow commands inside Docker
 exec_airflow() {
     local cmd="$1"
     ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-        "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
+        "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
          $cmd"
 }
 
 echo "" | tee -a $LOG_FILE
-echo "→ Проверка подключения..." | tee -a $LOG_FILE
+echo "-> Checking connection..." | tee -a $LOG_FILE
 ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-    "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
-     echo 'Подключение успешно'" || {
-    echo "✗ Ошибка подключения к кластеру" | tee -a $LOG_FILE
+    "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
+     echo 'Connection successful'" || {
+    echo "ERROR: Unable to connect to the cluster" | tee -a $LOG_FILE
     exit 1
 }
-echo "✓ Подключение установлено" | tee -a $LOG_FILE
+echo "Connection established" | tee -a $LOG_FILE
 
-# Проверка существования DAG
+# Verify the DAG exists
 echo "" | tee -a $LOG_FILE
-echo "→ Проверка DAG в Airflow..." | tee -a $LOG_FILE
+echo "-> Checking DAG in Airflow..." | tee -a $LOG_FILE
 exec_airflow "airflow dags list | grep $DAG_NAME" &>/dev/null || {
-    echo "✗ DAG '$DAG_NAME' не найден в Airflow" | tee -a $LOG_FILE
-    echo "  Запустите сначала: ./deploy_dag.sh" | tee -a $LOG_FILE
+    echo "ERROR: DAG '$DAG_NAME' not found in Airflow" | tee -a $LOG_FILE
+    echo "  Run ./deploy_dag.sh first" | tee -a $LOG_FILE
     exit 1
 }
-echo "✓ DAG найден: $DAG_NAME" | tee -a $LOG_FILE
+echo "DAG found: $DAG_NAME" | tee -a $LOG_FILE
 
-# Настройка режима полных данных (100%)
+# Configure full-data mode (100%)
 echo "" | tee -a $LOG_FILE
-echo "→ Настройка режима полных данных (100%)..." | tee -a $LOG_FILE
+echo "-> Configuring full-data mode (100%)..." | tee -a $LOG_FILE
 
-# Удаляем переменную sample_fraction если она существует (это вернет режим 100% по умолчанию)
+# Remove the sample_fraction variable if it exists (this restores the 100% default)
 exec_airflow "airflow variables delete geo_marts_sample_fraction" 2>/dev/null || true
 
-# Или явно устанавливаем 1.0
+# Or set it explicitly to 1.0
 exec_airflow "airflow variables set geo_marts_sample_fraction 1.0" 2>&1 | tee -a $LOG_FILE
 
-# Проверяем установленное значение
+# Verify the configured value
 SAMPLE_VALUE=$(exec_airflow "airflow variables get geo_marts_sample_fraction 2>/dev/null" || echo "1.0")
-echo "✓ Режим выборки: ${SAMPLE_VALUE} (100% данных)" | tee -a $LOG_FILE
+echo "Sample mode: ${SAMPLE_VALUE} (100% of data)" | tee -a $LOG_FILE
 
-# Активация DAG (если не активирован)
+# Activate the DAG (if not active)
 echo "" | tee -a $LOG_FILE
-echo "→ Активация DAG..." | tee -a $LOG_FILE
+echo "-> Activating DAG..." | tee -a $LOG_FILE
 exec_airflow "airflow dags unpause $DAG_NAME" 2>&1 | tee -a $LOG_FILE
-echo "✓ DAG активирован" | tee -a $LOG_FILE
+echo "DAG activated" | tee -a $LOG_FILE
 
-# Запуск DAG
+# Trigger the DAG
 echo "" | tee -a $LOG_FILE
-echo "→ Запуск DAG '$DAG_NAME'..." | tee -a $LOG_FILE
+echo "-> Triggering DAG '$DAG_NAME'..." | tee -a $LOG_FILE
 RUN_ID=$(exec_airflow "airflow dags trigger $DAG_NAME --conf '{\"sample_fraction\": 1.0}' 2>&1" | grep -o "Created <DagRun.*>" | grep -o "manual__[^>]*" || echo "manual_$(date +%Y-%m-%dT%H:%M:%S)")
-echo "✓ DAG запущен" | tee -a $LOG_FILE
+echo "DAG triggered" | tee -a $LOG_FILE
 echo "  Run ID: $RUN_ID" | tee -a $LOG_FILE
 
-# Мониторинг выполнения
+# Monitor the run
 echo "" | tee -a $LOG_FILE
-echo "→ Мониторинг выполнения..." | tee -a $LOG_FILE
-echo "  (Обновление каждые 30 секунд)" | tee -a $LOG_FILE
+echo "-> Monitoring execution..." | tee -a $LOG_FILE
+echo "  (Refresh every 30 seconds)" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
 
-# Ожидание завершения с периодическими проверками
-MAX_WAIT_MINUTES=120  # Максимум 2 часа
+# Wait for completion with periodic checks
+MAX_WAIT_MINUTES=120  # Up to 2 hours
 WAIT_SECONDS=30
 ITERATIONS=$((MAX_WAIT_MINUTES * 60 / WAIT_SECONDS))
 
 for i in $(seq 1 $ITERATIONS); do
-    # Получаем статус DAG run
+    # Fetch DAG run status
     DAG_STATE=$(exec_airflow "airflow dags state $DAG_NAME $RUN_ID 2>/dev/null" || echo "unknown")
 
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[$TIMESTAMP] Статус: $DAG_STATE" | tee -a $LOG_FILE
+    echo "[$TIMESTAMP] Status: $DAG_STATE" | tee -a $LOG_FILE
 
-    # Проверяем финальные статусы
+    # Check final states
     if [[ "$DAG_STATE" == "success" ]]; then
         echo "" | tee -a $LOG_FILE
-        echo "✓ DAG выполнен успешно!" | tee -a $LOG_FILE
+        echo "DAG executed successfully!" | tee -a $LOG_FILE
         break
     elif [[ "$DAG_STATE" == "failed" ]]; then
         echo "" | tee -a $LOG_FILE
-        echo "✗ DAG завершился с ошибкой" | tee -a $LOG_FILE
+        echo "DAG finished with errors" | tee -a $LOG_FILE
         echo "" | tee -a $LOG_FILE
-        echo "→ Последние задачи с ошибками:" | tee -a $LOG_FILE
+        echo "-> Most recent failed tasks:" | tee -a $LOG_FILE
         exec_airflow "airflow tasks states-for-dag-run $DAG_NAME $RUN_ID 2>/dev/null | grep failed" | tee -a $LOG_FILE || true
         exit 1
     fi
 
-    # Ждем перед следующей проверкой
+    # Wait before the next check
     if [ $i -lt $ITERATIONS ]; then
         sleep $WAIT_SECONDS
     fi
 done
 
-# Проверяем не превысили ли таймаут
+# Check whether the timeout was exceeded
 if [[ "$DAG_STATE" != "success" ]]; then
     echo "" | tee -a $LOG_FILE
-    echo "⚠ Превышен таймаут ожидания ($MAX_WAIT_MINUTES минут)" | tee -a $LOG_FILE
-    echo "  DAG все еще выполняется: $DAG_STATE" | tee -a $LOG_FILE
-    echo "  Проверьте статус в Airflow UI" | tee -a $LOG_FILE
+    echo "WARNING: wait timeout exceeded ($MAX_WAIT_MINUTES minutes)" | tee -a $LOG_FILE
+    echo "  DAG is still running: $DAG_STATE" | tee -a $LOG_FILE
+    echo "  Check the status in the Airflow UI" | tee -a $LOG_FILE
 fi
 
-# Показываем статистику по HDFS
+# Show HDFS statistics
 echo "" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
-echo "Статистика данных в HDFS" | tee -a $LOG_FILE
+echo "HDFS data statistics" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
 
 echo "" | tee -a $LOG_FILE
-echo "→ ODS слой (events_with_cities):" | tee -a $LOG_FILE
-exec_airflow "hdfs dfs -du -s -h /user/ajdaral1ev/project/geo/ods/events_with_cities" 2>/dev/null | awk '{print "  Размер: " $1}' | tee -a $LOG_FILE
-exec_airflow "hdfs dfs -ls /user/ajdaral1ev/project/geo/ods/events_with_cities | grep '^d' | wc -l" 2>/dev/null | awk '{print "  Партиций: " $1}' | tee -a $LOG_FILE
+echo "-> ODS layer (events_with_cities):" | tee -a $LOG_FILE
+exec_airflow "hdfs dfs -du -s -h /user/student/project/geo/ods/events_with_cities" 2>/dev/null | awk '{print "  Size: " $1}' | tee -a $LOG_FILE
+exec_airflow "hdfs dfs -ls /user/student/project/geo/ods/events_with_cities | grep '^d' | wc -l" 2>/dev/null | awk '{print "  Partitions: " $1}' | tee -a $LOG_FILE
 
 echo "" | tee -a $LOG_FILE
-echo "→ MART: user_geo_report:" | tee -a $LOG_FILE
-exec_airflow "hdfs dfs -du -s -h /user/ajdaral1ev/project/geo/mart/user_geo_report" 2>/dev/null | awk '{print "  Размер: " $1}' | tee -a $LOG_FILE
+echo "-> MART: user_geo_report:" | tee -a $LOG_FILE
+exec_airflow "hdfs dfs -du -s -h /user/student/project/geo/mart/user_geo_report" 2>/dev/null | awk '{print "  Size: " $1}' | tee -a $LOG_FILE
 
 echo "" | tee -a $LOG_FILE
-echo "→ MART: zone_mart:" | tee -a $LOG_FILE
-exec_airflow "hdfs dfs -du -s -h /user/ajdaral1ev/project/geo/mart/zone_mart" 2>/dev/null | awk '{print "  Размер: " $1}' | tee -a $LOG_FILE
+echo "-> MART: zone_mart:" | tee -a $LOG_FILE
+exec_airflow "hdfs dfs -du -s -h /user/student/project/geo/mart/zone_mart" 2>/dev/null | awk '{print "  Size: " $1}' | tee -a $LOG_FILE
 
 echo "" | tee -a $LOG_FILE
-echo "→ MART: friend_recommendations:" | tee -a $LOG_FILE
-exec_airflow "hdfs dfs -du -s -h /user/ajdaral1ev/project/geo/mart/friend_recommendations" 2>/dev/null | awk '{print "  Размер: " $1}' | tee -a $LOG_FILE
+echo "-> MART: friend_recommendations:" | tee -a $LOG_FILE
+exec_airflow "hdfs dfs -du -s -h /user/student/project/geo/mart/friend_recommendations" 2>/dev/null | awk '{print "  Size: " $1}' | tee -a $LOG_FILE
 
 echo "" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
-echo "✓ Выполнение завершено" | tee -a $LOG_FILE
+echo "Execution complete" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
-echo "Лог сохранен в: $LOG_FILE" | tee -a $LOG_FILE
+echo "Log saved to: $LOG_FILE" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
-echo "Для просмотра логов DAG в Airflow:" | tee -a $LOG_FILE
+echo "To view DAG logs in Airflow:" | tee -a $LOG_FILE
 echo "  airflow dags show $DAG_NAME" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE

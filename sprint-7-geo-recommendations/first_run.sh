@@ -1,33 +1,33 @@
 #!/bin/bash
 set -e
 
-# Константы подключения
+# Connection constants
 SSH_KEY="$HOME/.ssh/ssh_private_key"
-SSH_USER="yc-user"
-SSH_HOST="158.160.159.232"
+SSH_USER="cluster-user"
+SSH_HOST="10.0.0.10"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no"
 
-# Параметры выборки
-SAMPLE_FRACTION="${SAMPLE_FRACTION:-0.1}"  # По умолчанию 10%
+# Sampling parameters
+SAMPLE_FRACTION="${SAMPLE_FRACTION:-0.1}"  # Default: 10%
 LOG_FILE="first_run_$(date +%Y%m%d_%H%M%S).log"
 
 echo "==================================================" | tee $LOG_FILE
-echo "Первый тестовый запуск geo-analytics pipeline" | tee -a $LOG_FILE
-echo "Режим выборки: ${SAMPLE_FRACTION} ($(echo "$SAMPLE_FRACTION * 100" | bc)%)" | tee -a $LOG_FILE
+echo "First test run of the geo-analytics pipeline" | tee -a $LOG_FILE
+echo "Sample mode: ${SAMPLE_FRACTION} ($(echo "$SAMPLE_FRACTION * 100" | bc)%)" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
 
-# Функция для выполнения Spark job через Docker
+# Function for running a Spark job via Docker
 exec_spark_job() {
     local script_name="$1"
     local step_name="$2"
 
     echo "" | tee -a $LOG_FILE
-    echo "→ [$step_name] Запуск $script_name..." | tee -a $LOG_FILE
+    echo "-> [$step_name] Starting $script_name..." | tee -a $LOG_FILE
     start_time=$(date +%s)
 
-    # Выполняем spark-submit в Docker контейнере
+    # Run spark-submit inside the Docker container
     ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-        "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
+        "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
          spark-submit --master yarn \
          --conf spark.sql.adaptive.enabled=true \
          --conf spark.sql.shuffle.partitions=20 \
@@ -45,49 +45,49 @@ exec_spark_job() {
     duration=$((end_time - start_time))
 
     if [ $exit_code -eq 0 ]; then
-        echo "✓ [$step_name] Завершено успешно за ${duration}s" | tee -a $LOG_FILE
+        echo "[$step_name] Completed successfully in ${duration}s" | tee -a $LOG_FILE
     else
-        echo "✗ [$step_name] Ошибка выполнения (код: $exit_code)" | tee -a $LOG_FILE
+        echo "[$step_name] Execution error (code: $exit_code)" | tee -a $LOG_FILE
         echo "" | tee -a $LOG_FILE
-        echo "Проверьте лог для деталей: $LOG_FILE" | tee -a $LOG_FILE
+        echo "See the log for details: $LOG_FILE" | tee -a $LOG_FILE
         exit $exit_code
     fi
 }
 
-# Проверка подключения
+# Check connection
 echo "" | tee -a $LOG_FILE
-echo "→ Проверка подключения к кластеру..." | tee -a $LOG_FILE
+echo "-> Checking cluster connection..." | tee -a $LOG_FILE
 ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-    "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
-     echo 'Подключение успешно'" || {
-    echo "✗ Ошибка подключения к кластеру" | tee -a $LOG_FILE
+    "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
+     echo 'Connection successful'" || {
+    echo "Failed to connect to the cluster" | tee -a $LOG_FILE
     exit 1
 }
-echo "✓ Подключение установлено" | tee -a $LOG_FILE
+echo "Connection established" | tee -a $LOG_FILE
 
-# Засекаем общее время
+# Record overall start time
 overall_start=$(date +%s)
 
-# Последовательный запуск всех этапов pipeline
+# Sequentially run every pipeline stage
 exec_spark_job "create_ods_layer.py" "1/4 ODS Layer"
 exec_spark_job "user_geo_mart.py" "2/4 User Geo Mart"
 exec_spark_job "zone_mart.py" "3/4 Zone Mart"
 exec_spark_job "friend_recommendations.py" "4/4 Friend Recommendations"
 
-# Подсчет общего времени
+# Compute total duration
 overall_end=$(date +%s)
 overall_duration=$((overall_end - overall_start))
 
 echo "" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
-echo "✓ Тестовый запуск завершен успешно!" | tee -a $LOG_FILE
+echo "Test run completed successfully!" | tee -a $LOG_FILE
 echo "==================================================" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
-echo "Общее время выполнения: ${overall_duration}s ($(echo "scale=2; $overall_duration / 60" | bc) минут)" | tee -a $LOG_FILE
-echo "Лог сохранен в: $LOG_FILE" | tee -a $LOG_FILE
+echo "Total execution time: ${overall_duration}s ($(echo "scale=2; $overall_duration / 60" | bc) minutes)" | tee -a $LOG_FILE
+echo "Log saved to: $LOG_FILE" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE
-echo "Следующие шаги:" | tee -a $LOG_FILE
-echo "1. Проверьте результаты: ./monitor_pipeline.sh" | tee -a $LOG_FILE
-echo "2. Если тесты OK, разверните DAG: ./deploy_dag.sh" | tee -a $LOG_FILE
-echo "3. Настройте DAG на 100% данных или оставьте тестовый режим" | tee -a $LOG_FILE
+echo "Next steps:" | tee -a $LOG_FILE
+echo "1. Check the results: ./monitor_pipeline.sh" | tee -a $LOG_FILE
+echo "2. If tests pass, deploy the DAG: ./deploy_dag.sh" | tee -a $LOG_FILE
+echo "3. Switch the DAG to 100% data or keep test mode" | tee -a $LOG_FILE
 echo "" | tee -a $LOG_FILE

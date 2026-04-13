@@ -1,30 +1,32 @@
 """
 ────────────────────────────── DAG: ETL_full_pipeline_alchemy ───────────────────────────────
 
-Этап 1:
-    ▪ Получение данных по API (/generate_report, /get_report).
-    ▪ Загрузка CSV → stage.user_order_log и других stage-таблиц.
-    ▪ Учет статусов shipped/refunded.
-    ▪ Пересчет транзакционной витрины mart.f_sales (отрицательные суммы для refunded).
+Stage 1:
+    - Pull data from the API (/generate_report, /get_report).
+    - Load CSV files into stage.user_order_log and the other stage tables.
+    - Handle shipped / refunded statuses.
+    - Rebuild the transactional mart mart.f_sales (refunded rows get negative amounts).
 
-Этап 2:
-    ▪ Создание витрины mart.f_customer_retention (weekly):
-        – new, returning, refunded клиенты.
-        – Доходы от каждой группы.
+Stage 2:
+    - Build the weekly mart mart.f_customer_retention:
+        * new, returning and refunded customers;
+        * revenue per group.
 
-Этап 3:
-    ▪ Идемпотентность:
-        – Stage пересоздается на каждую партию (pandas.to_sql(if_exists="replace")).
-        – Mart.f_sales и mart.f_customer_retention чистятся за пересчитываемые даты/недели.
-        – Повторный запуск DAG не создает дубликатов.
+Stage 3:
+    - Idempotency:
+        * Stage tables are rebuilt on every batch (pandas.to_sql(if_exists="replace")).
+        * mart.f_sales and mart.f_customer_retention are cleared for the dates / weeks
+          being recomputed.
+        * Re-running the DAG never introduces duplicates.
 
-Используется SQLAlchemy для всех операций с БД:
-    – PostgresHook.get_sqlalchemy_engine()
-    – pandas.to_sql для stage
-    – engine.begin() + text() для DML и DDL
+SQLAlchemy is used for every database operation:
+    - PostgresHook.get_sqlalchemy_engine()
+    - pandas.to_sql for the stage layer
+    - engine.begin() + text() for DML and DDL
 """
 
 import datetime as dt
+import os
 import time
 from pathlib import Path
 
@@ -37,13 +39,13 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.utils.task_group import TaskGroup
 
-# ─────────────────────────────── 1. Константы ───────────────────────────────
-PG_CONN_ID = "pg_connection"                    # Airflow connection к Postgres
+# ─────────────────────────────── 1. Constants ───────────────────────────────
+PG_CONN_ID = "pg_connection"                    # Airflow connection to Postgres
 LOCAL_DIR = Path("/opt/airflow/data")
 LOCAL_DIR.mkdir(exist_ok=True, parents=True)
 
 API_HOST  = "d5dg1j9kt695d30blp03.apigw.yandexcloud.net"
-API_TOKEN = "5f55e6c0-e9e5-4a9c-b313-63c01fc31460"
+API_TOKEN = os.environ["PRACTICUM_API_TOKEN"]
 
 NICKNAME  = "Ajdar"
 COHORT    = "40"
@@ -113,26 +115,26 @@ CREATE TABLE IF NOT EXISTS mart.f_customer_retention (
 );
 """
 
-# ─────────────────────────────── 3. Утилиты SQLAlchemy ───────────────────────────────
+# ─────────────────────────────── 3. SQLAlchemy helpers ───────────────────────────────
 def get_engine():
-    """Возвращает SQLAlchemy Engine для подключения к Postgres."""
+    """Return a SQLAlchemy Engine bound to the Postgres connection."""
     return PostgresHook(postgres_conn_id=PG_CONN_ID).get_sqlalchemy_engine()
 
 def exec_sql(sql: str):
-    """Выполняет многострочный SQL в транзакции через SQLAlchemy."""
+    """Execute multi-statement SQL inside a single transaction."""
     engine = get_engine()
     with engine.begin() as conn:
         for stmt in sql.split(";"):
             if stmt.strip():
                 conn.execute(text(stmt))
 
-# ─────────────────────────────── 4. Таски ───────────────────────────────
+# ─────────────────────────────── 4. Tasks ───────────────────────────────
 
-# ───── Этап 1: API
+# ───── Stage 1: API
 def create_report(**context):
     """
-    POST /generate_report — запускаем формирование отчета.
-    Сохраняем task_id в XCom.
+    POST /generate_report - kick off report generation.
+    Push the returned task_id into XCom.
     """
     r = requests.post(f"https://{API_HOST}/generate_report", headers=HEADERS, timeout=10)
     r.raise_for_status()
@@ -140,8 +142,8 @@ def create_report(**context):
 
 def wait_report(**context):
     """
-    GET /get_report — ждем пока статус SUCCESS.
-    Сохраняем report_id для скачивания файлов.
+    GET /get_report - poll until status == SUCCESS.
+    Push the report_id needed to download the CSV files.
     """
     task_id = context["ti"].xcom_pull(key="task_id")
     for _ in range(10):
@@ -155,15 +157,15 @@ def wait_report(**context):
             context["ti"].xcom_push(key="report_id", value=resp["data"]["report_id"])
             return
         time.sleep(30)
-    raise TimeoutError("Отчет не готов после 10 попыток")
+    raise TimeoutError("Report not ready after 10 attempts")
 
-# ───── Этап 1: Загрузка в stage
+# ───── Stage 1: load into stage
 def load_stage(**context):
     """
-    Скачиваем CSV и грузим в stage.*.
-    ▪ Если нет колонки status (старый формат) — добавляем 'shipped'.
-    ▪ Используем pandas.to_sql(if_exists='replace'), чтобы пересоздать stage
-      на каждую партию (идемпотентность Этапа 3).
+    Download CSV files and load them into stage.*.
+    - If the status column is missing (legacy format) default it to 'shipped'.
+    - pandas.to_sql(if_exists='replace') rebuilds each stage table per batch,
+      which underpins the Stage 3 idempotency guarantee.
     """
     report_id = context["ti"].xcom_pull(key="report_id")
     base = (
@@ -183,7 +185,7 @@ def load_stage(**context):
         if table == "user_order_log" and "status" not in df.columns:
             df["status"] = "shipped"
 
-        df.to_csv(LOCAL_DIR / fname, index=False)  # сохраняем копию
+        df.to_csv(LOCAL_DIR / fname, index=False)  # keep a local copy
 
         df.to_sql(
             name=table,
@@ -194,22 +196,23 @@ def load_stage(**context):
             method="multi"
         )
 
-# ───── Этап 1: mart.f_sales
+# ───── Stage 1: mart.f_sales
 def refresh_f_sales(**_):
     """
-    Пересчитываем транзакционную витрину mart.f_sales:
-    ▪ shipped → +, refunded → - (через поле sign).
-    ▪ Перед вставкой удаляем только даты из stage.user_order_log (идемпотентность Этап 3).
+    Rebuild the transactional mart mart.f_sales:
+    - shipped → +, refunded → - (recorded in the sign column).
+    - Only the dates present in stage.user_order_log are deleted before insert
+      (Stage 3 idempotency).
     """
     sql = """
           DELETE FROM mart.f_sales
-           WHERE order_date IN (SELECT DISTINCT date_time::date FROM stage.user_order_log);      
+           WHERE order_date IN (SELECT DISTINCT date_time::date FROM stage.user_order_log);
           INSERT INTO mart.f_sales
             (order_id, order_status, order_date,
              item_id, customer_id, price, quantity, payment_amount, sign)
-          -- Вообще по хорошему нужна специальная таблица мапер, но для магазина с колличеством заказов до
-          -- 1kk сойдёт. При 100kk заказов риск коллизии p ≈ (10^16) / (3.7×10^19) ≈ 0.00027 (~1 к 3.7 тыс.).
-          -- Думаю можно жить если мы не Амазон.
+          -- A dedicated id-mapping table would be cleaner, but md5-derived ids are fine
+          -- for catalogues up to ~1M orders. At 100M orders the collision probability is
+          -- p ≈ (10^16) / (3.7×10^19) ≈ 0.00027 (~1 in 3.7k). Acceptable unless we are Amazon.
           SELECT DISTINCT ON (uniq_id, status)
                  ('x' || substr(md5(uniq_id), 1, 16))::bit(64)::bigint AS order_id,
                  status,
@@ -233,13 +236,14 @@ def refresh_f_sales(**_):
           """
     exec_sql(sql)
 
-# ───── Этап 2: mart.f_customer_retention
+# ───── Stage 2: mart.f_customer_retention
 def refresh_f_retention(**_):
     """
-    Строим weekly customer retention:
-    ▪ new, returning, refunded клиенты.
-    ▪ Доходы для каждой группы.
-    ▪ Удаляем только недели из инкремента (идемпотентность Этап 3).
+    Build the weekly customer-retention mart:
+    - new, returning, refunded customers;
+    - revenue per group;
+    - only the weeks in the current increment are deleted before insert
+      (Stage 3 idempotency).
     """
     sql = """
           WITH sales AS (
@@ -299,7 +303,7 @@ with DAG(
     dagrun_timeout=dt.timedelta(hours=3),
 ) as dag:
 
-    # Этап 3: init_db (идемпотентное создание схем и таблиц)
+    # Stage 3: init_db (idempotent schema and table creation)
     with TaskGroup("init_db") as init_db:
         ddl_stage = PostgresOperator(
             task_id="ddl_stage",
@@ -312,14 +316,14 @@ with DAG(
             sql=DDL_MART,
         )
 
-    # Этап 1: API → Stage → mart.f_sales
+    # Stage 1: API → Stage → mart.f_sales
     t_create = PythonOperator(task_id="create_report", python_callable=create_report)
     t_wait   = PythonOperator(task_id="wait_report",   python_callable=wait_report)
     t_load   = PythonOperator(task_id="load_stage",    python_callable=load_stage)
     t_f_sales   = PythonOperator(task_id="refresh_f_sales",     python_callable=refresh_f_sales)
 
-    # Этап 2: mart.f_customer_retention
+    # Stage 2: mart.f_customer_retention
     t_retention = PythonOperator(task_id="refresh_f_retention", python_callable=refresh_f_retention)
 
-    # Цепочка задач
+    # Task dependencies
     init_db >> t_create >> t_wait >> t_load >> t_f_sales >> t_retention

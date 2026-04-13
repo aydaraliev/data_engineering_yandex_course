@@ -1,13 +1,13 @@
 """
-Скрипт для создания витрины данных пользователей с геоаналитикой.
+Script for building the user geo analytics data mart.
 
-Витрина включает:
-- user_id: идентификатор пользователя
-- act_city: актуальный город (последнее сообщение)
-- home_city: домашний город (город, где пользователь был 27+ дней)
-- travel_count: количество посещенных городов
-- travel_array: список городов в порядке посещения
-- local_time: местное время последнего события
+The mart includes:
+- user_id: user identifier
+- act_city: active city (last message)
+- home_city: home city (city where the user stayed 27+ days)
+- travel_count: number of visited cities
+- travel_array: list of cities in visiting order
+- local_time: local time of the last event
 """
 
 import sys
@@ -20,7 +20,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-# Настройка логирования
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class PerformanceMetrics:
-    """Трекинг метрик производительности."""
+    """Performance metrics tracking."""
     def __init__(self):
         self.checkpoints = {}
 
@@ -44,7 +44,7 @@ class PerformanceMetrics:
 
 
 class UserGeoMart:
-    """Класс для построения витрины геоданных пользователей."""
+    """Class for building the user geo data mart."""
 
     def __init__(
         self,
@@ -54,13 +54,13 @@ class UserGeoMart:
         sample_fraction: float = 1.0
     ):
         """
-        Инициализация.
+        Initialization.
 
         Args:
             spark: SparkSession
-            ods_path: Путь к ODS слою (events_with_cities)
-            output_path: Путь для сохранения витрины
-            sample_fraction: Доля выборки (0.0-1.0), по умолчанию 1.0 (все данные)
+            ods_path: Path to the ODS layer (events_with_cities)
+            output_path: Path for saving the mart
+            sample_fraction: Sample fraction (0.0-1.0); default 1.0 (all data)
         """
         self.spark = spark
         self.ods_path = ods_path
@@ -69,23 +69,23 @@ class UserGeoMart:
         self.metrics = PerformanceMetrics()
 
     def load_data(self):
-        """Загружает данные из ODS слоя."""
-        logger.info(f"Загрузка событий из ODS: {self.ods_path}")
-        # ОПТИМИЗАЦИЯ: Читаем уже обогащенные данные из ODS вместо RAW
+        """Loads data from the ODS layer."""
+        logger.info(f"Loading events from ODS: {self.ods_path}")
+        # OPTIMIZATION: read already enriched data from ODS instead of RAW
         events_raw = self.spark.read.parquet(self.ods_path)
 
-        # Применение выборки если указано
+        # Apply sampling if requested
         if self.sample_fraction < 1.0:
-            logger.info(f"Применение выборки {self.sample_fraction} с seed=42")
+            logger.info(f"Applying sample fraction {self.sample_fraction} with seed=42")
             self.events_df = events_raw.sample(fraction=self.sample_fraction, seed=42)
         else:
             self.events_df = events_raw
 
-        logger.info("События загружены из ODS (уже обогащены городами)")
+        logger.info("Events loaded from ODS (already enriched with cities)")
 
     def filter_messages_with_coords(self):
-        """Фильтрует только сообщения (уже с городами из ODS)."""
-        logger.info("Фильтрация сообщений...")
+        """Filters messages only (already with cities from ODS)."""
+        logger.info("Filtering messages...")
 
         self.messages_df = self.events_df.filter(
             F.col("event_type") == "message"
@@ -99,28 +99,28 @@ class UserGeoMart:
             "lon"
         )
 
-        logger.info("Сообщения отфильтрованы")
+        logger.info("Messages filtered")
 
     def enrich_with_cities(self):
-        """Данные уже обогащены в ODS слое."""
-        logger.info("Пропуск обогащения городами (уже выполнено в ODS)")
-        # ОПТИМИЗАЦИЯ: Этот шаг больше не нужен, данные уже обогащены в ODS
-        # ОПТИМИЗАЦИЯ: Кэшируем т.к. используется в 3 методах (act_city, home_city, travel_stats)
+        """Data is already enriched in the ODS layer."""
+        logger.info("Skipping city enrichment (already performed in ODS)")
+        # OPTIMIZATION: this step is no longer needed, data is already enriched in ODS
+        # OPTIMIZATION: cache since used in 3 methods (act_city, home_city, travel_stats)
         self.enriched_df = self.messages_df.cache()
 
-        # Материализация кэша
+        # Materialize the cache
         msg_count = self.enriched_df.count()
-        logger.info(f"Данные закэшированы: {msg_count} сообщений")
+        logger.info(f"Data cached: {msg_count} messages")
 
     def calculate_act_city(self):
         """
-        Определяет актуальный город (act_city) для каждого пользователя.
+        Determines the active city (act_city) for each user.
 
-        act_city - город, из которого было отправлено последнее сообщение.
+        act_city - city from which the last message was sent.
         """
-        logger.info("Расчет актуального города (act_city)...")
+        logger.info("Calculating the active city (act_city)...")
 
-        # Окно для определения последнего события пользователя
+        # Window for identifying the user's last event
         window_last = Window.partitionBy("user_id").orderBy(F.col("event_datetime").desc())
 
         self.act_city_df = self.enriched_df.withColumn(
@@ -135,28 +135,28 @@ class UserGeoMart:
             F.col("event_datetime").alias("last_event_time")
         )
 
-        # logger.info(f"Актуальный город определен для {self.act_city_df.count()} пользователей")  # Commented for performance
+        # logger.info(f"Active city determined for {self.act_city_df.count()} users")  # Commented for performance
 
     def calculate_home_city(self):
         """
-        Определяет домашний город (home_city) для каждого пользователя.
+        Determines the home city (home_city) for each user.
 
-        home_city - последний город, где пользователь был дольше 27 дней.
+        home_city - the last city where the user stayed longer than 27 days.
 
-        Подход: Ищем непрерывные последовательности дней в одном городе.
-        Город считается домашним, если:
-        - Пользователь отправлял сообщения из этого города
-        - Период активности в городе составляет 27+ дней (от первого до последнего сообщения)
+        Approach: look for uninterrupted sequences of days in the same city.
+        A city is considered home if:
+        - The user sent messages from this city
+        - The period of activity in the city is 27+ days (from first to last message)
         """
-        logger.info("Расчет домашнего города (home_city)...")
+        logger.info("Calculating the home city (home_city)...")
 
-        # Добавляем дату события (без времени)
+        # Add event date (without time)
         messages_with_date = self.enriched_df.withColumn(
             "event_date",
             F.to_date(F.col("event_datetime"))
         )
 
-        # Определяем смену города для выявления непрерывных последовательностей
+        # Detect city change to identify uninterrupted sequences
         window_city_change = Window.partitionBy("user_id").orderBy("event_datetime")
 
         city_sequences = messages_with_date.withColumn(
@@ -170,7 +170,7 @@ class UserGeoMart:
             F.sum("city_changed").over(window_city_change)
         )
 
-        # Для каждой последовательности считаем период пребывания
+        # For each sequence compute the stay duration
         city_periods = city_sequences.groupBy(
             "user_id",
             "city",
@@ -184,12 +184,12 @@ class UserGeoMart:
             F.datediff(F.col("period_end"), F.col("period_start")) + 1
         )
 
-        # Фильтруем периоды >= 27 дней
+        # Filter periods >= 27 days
         home_cities = city_periods.filter(
             F.col("days_in_city") >= 27
         )
 
-        # Берем последний период (по времени последнего события)
+        # Take the last period (by last event time)
         window_last_home = Window.partitionBy("user_id").orderBy(F.col("last_event_in_period").desc())
 
         self.home_city_df = home_cities.withColumn(
@@ -202,21 +202,21 @@ class UserGeoMart:
             F.col("city").alias("home_city")
         )
 
-        # logger.info(f"Домашний город определен для {self.home_city_df.count()} пользователей")  # Commented for performance
+        # logger.info(f"Home city determined for {self.home_city_df.count()} users")  # Commented for performance
 
     def calculate_travel_stats(self):
         """
-        Рассчитывает статистику путешествий.
+        Computes travel statistics.
 
-        - travel_count: количество посещенных городов (с повторами)
-        - travel_array: список городов в порядке посещения
+        - travel_count: number of visited cities (with repeats)
+        - travel_array: list of cities in visiting order
         """
-        logger.info("Расчет статистики путешествий...")
+        logger.info("Computing travel statistics...")
 
-        # Сортируем события по времени
+        # Sort events by time
         window_travel = Window.partitionBy("user_id").orderBy("event_datetime")
 
-        # Определяем смену города
+        # Detect city change
         travel_events = self.enriched_df.withColumn(
             "prev_city",
             F.lag("city").over(window_travel)
@@ -230,23 +230,23 @@ class UserGeoMart:
             F.col("is_new_city") == 1
         )
 
-        # Агрегируем путешествия
+        # Aggregate travels
         self.travel_df = travel_events.groupBy("user_id").agg(
             F.count("city").alias("travel_count"),
             F.collect_list("city").alias("travel_array")
         )
 
-        # logger.info(f"Статистика путешествий рассчитана для {self.travel_df.count()} пользователей")  # Commented for performance
+        # logger.info(f"Travel statistics computed for {self.travel_df.count()} users")  # Commented for performance
 
     def calculate_local_time(self):
         """
-        Рассчитывает местное время последнего события.
+        Computes the local time of the last event.
 
-        local_time - время последнего события с учетом timezone геопозиции.
+        local_time - time of the last event taking the geolocation timezone into account.
         """
-        logger.info("Расчет местного времени...")
+        logger.info("Computing local time...")
 
-        # Используем данные из act_city_df, где уже есть последнее событие и timezone
+        # Use data from act_city_df where the last event time and timezone are already available
         self.local_time_df = self.act_city_df.withColumn(
             "local_time",
             F.from_utc_timestamp(F.col("last_event_time"), F.col("act_timezone"))
@@ -255,37 +255,37 @@ class UserGeoMart:
             "local_time"
         )
 
-        logger.info("Местное время рассчитано")
+        logger.info("Local time computed")
 
     def build_mart(self):
-        """Собирает финальную витрину."""
-        logger.info("Сборка финальной витрины...")
+        """Assembles the final mart."""
+        logger.info("Assembling the final mart...")
 
-        # Объединяем все компоненты
+        # Combine all components
         mart = self.act_city_df.select("user_id", "act_city")
 
-        # Добавляем home_city
+        # Add home_city
         mart = mart.join(
             self.home_city_df,
             on="user_id",
             how="left"
         )
 
-        # Добавляем travel_count и travel_array
+        # Add travel_count and travel_array
         mart = mart.join(
             self.travel_df,
             on="user_id",
             how="left"
         )
 
-        # Добавляем local_time
+        # Add local_time
         mart = mart.join(
             self.local_time_df,
             on="user_id",
             how="left"
         )
 
-        # Финальная витрина
+        # Final mart
         self.mart_df = mart.select(
             "user_id",
             "act_city",
@@ -295,30 +295,30 @@ class UserGeoMart:
             "local_time"
         )
 
-        # logger.info(f"Витрина построена: {self.mart_df.count()} пользователей")  # Commented for performance
+        # logger.info(f"Mart built: {self.mart_df.count()} users")  # Commented for performance
 
     def save_mart(self):
-        """Сохраняет витрину в HDFS."""
-        logger.info(f"Сохранение витрины в: {self.output_path}")
+        """Saves the mart to HDFS."""
+        logger.info(f"Saving mart to: {self.output_path}")
 
-        # ОПТИМИЗАЦИЯ: Coalesce для уменьшения количества мелких файлов
+        # OPTIMIZATION: coalesce to reduce the number of small files
         self.mart_df.coalesce(2).write \
             .mode("overwrite") \
             .parquet(self.output_path)
 
-        logger.info("Витрина успешно сохранена")
+        logger.info("Mart saved successfully")
 
     def show_sample(self, n=10):
-        """Показывает примеры записей из витрины."""
-        logger.info(f"Примеры записей витрины (первые {n}):")
+        """Shows sample records from the mart."""
+        logger.info(f"Sample mart records (first {n}):")
         self.mart_df.show(n, truncate=False)
 
     def run(self):
-        """Выполняет полный процесс построения витрины."""
+        """Executes the full mart build process."""
         logger.info("=" * 70)
-        logger.info("НАЧАЛО ПОСТРОЕНИЯ ВИТРИНЫ USER_GEO_REPORT")
+        logger.info("STARTING USER_GEO_REPORT MART BUILD")
         if self.sample_fraction < 1.0:
-            logger.info(f"РЕЖИМ ВЫБОРКИ: {self.sample_fraction * 100}%")
+            logger.info(f"SAMPLE MODE: {self.sample_fraction * 100}%")
         logger.info("=" * 70)
 
         try:
@@ -349,50 +349,50 @@ class UserGeoMart:
 
             self.show_sample()
 
-            # Вывод метрик производительности
+            # Print performance metrics
             logger.info("=" * 70)
-            logger.info("МЕТРИКИ ПРОИЗВОДИТЕЛЬНОСТИ:")
-            logger.info(f"  Загрузка данных:       {self.metrics.get_duration('start', 'load_data'):.2f}s")
-            logger.info(f"  Обогащение городами:   {self.metrics.get_duration('load_data', 'enrich_with_cities'):.2f}s")
-            logger.info(f"  Расчет act_city:       {self.metrics.get_duration('enrich_with_cities', 'calculate_act_city'):.2f}s")
-            logger.info(f"  Расчет home_city:      {self.metrics.get_duration('calculate_act_city', 'calculate_home_city'):.2f}s")
-            logger.info(f"  Расчет путешествий:    {self.metrics.get_duration('calculate_home_city', 'calculate_travel_stats'):.2f}s")
-            logger.info(f"  Сборка витрины:        {self.metrics.get_duration('calculate_travel_stats', 'build_mart'):.2f}s")
-            logger.info(f"  Сохранение:            {self.metrics.get_duration('build_mart', 'save_mart'):.2f}s")
-            logger.info(f"  ОБЩЕЕ ВРЕМЯ:           {self.metrics.get_duration('start', 'save_mart'):.2f}s")
+            logger.info("PERFORMANCE METRICS:")
+            logger.info(f"  Data load:              {self.metrics.get_duration('start', 'load_data'):.2f}s")
+            logger.info(f"  City enrichment:        {self.metrics.get_duration('load_data', 'enrich_with_cities'):.2f}s")
+            logger.info(f"  act_city calculation:   {self.metrics.get_duration('enrich_with_cities', 'calculate_act_city'):.2f}s")
+            logger.info(f"  home_city calculation:  {self.metrics.get_duration('calculate_act_city', 'calculate_home_city'):.2f}s")
+            logger.info(f"  Travel calculation:     {self.metrics.get_duration('calculate_home_city', 'calculate_travel_stats'):.2f}s")
+            logger.info(f"  Mart assembly:          {self.metrics.get_duration('calculate_travel_stats', 'build_mart'):.2f}s")
+            logger.info(f"  Save:                   {self.metrics.get_duration('build_mart', 'save_mart'):.2f}s")
+            logger.info(f"  TOTAL:                  {self.metrics.get_duration('start', 'save_mart'):.2f}s")
             logger.info("=" * 70)
-            logger.info("ВИТРИНА USER_GEO_REPORT УСПЕШНО ПОСТРОЕНА")
+            logger.info("USER_GEO_REPORT MART BUILT SUCCESSFULLY")
             logger.info("=" * 70)
 
             return 0
 
         except Exception as e:
-            logger.error(f"Ошибка при построении витрины: {e}", exc_info=True)
+            logger.error(f"Error while building the mart: {e}", exc_info=True)
             return 1
 
 
 def main():
-    """Основная функция."""
-    # Парсинг аргументов командной строки
-    parser = argparse.ArgumentParser(description='Построение витрины геоданных пользователей')
+    """Main entry point."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Build the user geo data mart')
     parser.add_argument('--sample', type=float, default=None,
-                       help='Доля выборки (0.0-1.0), например 0.1 для 10%%')
+                       help='Sample fraction (0.0-1.0), e.g. 0.1 for 10%%')
     args = parser.parse_args()
 
-    # Определяем sample_fraction из аргументов или переменной окружения
+    # Derive sample_fraction from argument or environment variable
     sample_fraction = args.sample if args.sample is not None else float(os.getenv('SAMPLE_FRACTION', '1.0'))
 
-    # Создаем Spark сессию
+    # Create Spark session
     spark = SparkSession.builder \
         .appName("UserGeoMart") \
         .config("spark.sql.adaptive.enabled", "true") \
         .getOrCreate()
 
-    # ОПТИМИЗАЦИЯ: Читаем из ODS вместо RAW
-    ods_path = "/user/ajdaral1ev/project/geo/ods/events_with_cities"
-    output_path = "/user/ajdaral1ev/project/geo/mart/user_geo_report"
+    # OPTIMIZATION: read from ODS instead of RAW
+    ods_path = "/user/student/project/geo/ods/events_with_cities"
+    output_path = "/user/student/project/geo/mart/user_geo_report"
 
-    # Создаем и запускаем процесс
+    # Create and launch the process
     mart_builder = UserGeoMart(
         spark=spark,
         ods_path=ods_path,

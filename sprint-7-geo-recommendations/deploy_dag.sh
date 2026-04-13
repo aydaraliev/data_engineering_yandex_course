@@ -1,93 +1,93 @@
 #!/bin/bash
 set -e
 
-# Константы подключения
+# Connection constants
 SSH_KEY="$HOME/.ssh/ssh_private_key"
-SSH_USER="yc-user"
-SSH_HOST="158.160.159.232"
+SSH_USER="cluster-user"
+SSH_HOST="10.0.0.10"
 SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no"
 
 DAG_FILE="dags/geo_marts_dag.py"
 DAG_NAME="geo_marts_update"
 
 echo "================================================"
-echo "Развертывание Airflow DAG: $DAG_NAME"
+echo "Deploying Airflow DAG: $DAG_NAME"
 echo "================================================"
 
-# Проверка существования DAG файла локально
+# Check the DAG file exists locally
 echo ""
-echo "→ Проверка наличия DAG файла..."
+echo "-> Checking the DAG file is present..."
 if [ ! -f "$DAG_FILE" ]; then
-    echo "✗ DAG файл не найден: $DAG_FILE"
+    echo "DAG file not found: $DAG_FILE"
     exit 1
 fi
-echo "✓ DAG файл найден: $DAG_FILE"
+echo "DAG file found: $DAG_FILE"
 
-# Локальная валидация DAG (базовая проверка Python синтаксиса)
+# Local DAG validation (basic Python syntax check)
 echo ""
-echo "→ Валидация Python синтаксиса DAG..."
+echo "-> Validating DAG Python syntax..."
 python3 -m py_compile "$DAG_FILE" || {
-    echo "✗ Ошибка синтаксиса в DAG файле"
+    echo "Syntax error in the DAG file"
     exit 1
 }
-echo "✓ Синтаксис DAG корректен"
+echo "DAG syntax is correct"
 
-# Копирование DAG на сервер
+# Copy DAG onto the server
 echo ""
-echo "→ Копирование DAG на сервер..."
+echo "-> Copying DAG to the server..."
 scp $SSH_OPTS "$DAG_FILE" ${SSH_USER}@${SSH_HOST}:/tmp/geo_marts_dag.py || {
-    echo "✗ Ошибка копирования DAG на сервер"
+    echo "Failed to copy DAG to the server"
     exit 1
 }
-echo "✓ DAG скопирован на сервер"
+echo "DAG copied to the server"
 
-# Копирование DAG в Docker контейнер
+# Copy DAG into the Docker container
 echo ""
-echo "→ Копирование DAG в Airflow..."
+echo "-> Copying DAG into Airflow..."
 ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-    "docker cp /tmp/geo_marts_dag.py \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1):/lessons/dags/" || {
-    echo "✗ Ошибка копирования DAG в Airflow"
+    "docker cp /tmp/geo_marts_dag.py \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1):/lessons/dags/" || {
+    echo "Failed to copy DAG into Airflow"
     exit 1
 }
-echo "✓ DAG развернут в /lessons/dags/"
+echo "DAG deployed to /lessons/dags/"
 
-# Проверка DAG в Airflow
+# Verify DAG in Airflow
 echo ""
-echo "→ Проверка импорта DAG в Airflow..."
-echo "  (подождите 10 секунд для обновления Airflow...)"
+echo "-> Verifying DAG import in Airflow..."
+echo "  (waiting 10 seconds for Airflow to refresh...)"
 sleep 10
 
 ssh $SSH_OPTS ${SSH_USER}@${SSH_HOST} \
-    "docker exec \$(docker ps --filter 'name=ajdara1iev' --format '{{.Names}}' | head -1) \
-     airflow dags list | grep $DAG_NAME" && echo "  ✓ DAG успешно импортирован в Airflow" || {
-    echo "  ⚠ DAG пока не виден в Airflow (может потребоваться больше времени)"
-    echo "    Проверьте вручную через Airflow UI или команду: airflow dags list"
+    "docker exec \$(docker ps --filter 'name=student' --format '{{.Names}}' | head -1) \
+     airflow dags list | grep $DAG_NAME" && echo "  DAG imported into Airflow successfully" || {
+    echo "  WARNING: DAG not yet visible in Airflow (may take a bit longer)"
+    echo "    Check manually via the Airflow UI or with: airflow dags list"
 }
 
 echo ""
 echo "================================================"
-echo "✓ DAG успешно развернут!"
+echo "DAG deployed successfully!"
 echo "================================================"
 echo ""
-echo "Следующие шаги:"
+echo "Next steps:"
 echo ""
-echo "1. Проверьте DAG в Airflow UI:"
-echo "   - Откройте Airflow веб-интерфейс"
-echo "   - Найдите DAG: $DAG_NAME"
-echo "   - Проверьте отсутствие ошибок импорта"
+echo "1. Verify the DAG in the Airflow UI:"
+echo "   - Open the Airflow web interface"
+echo "   - Locate the DAG: $DAG_NAME"
+echo "   - Confirm there are no import errors"
 echo ""
-echo "2. Настройте Airflow Variable для тестового режима (опционально):"
+echo "2. Set the Airflow Variable for test mode (optional):"
 echo "   airflow variables set geo_marts_sample_fraction 0.1"
-echo "   (это включит режим выборки 10% для всех задач)"
+echo "   (enables 10% sample mode for every task)"
 echo ""
-echo "3. Активируйте DAG:"
-echo "   - Через UI: включите toggle для DAG '$DAG_NAME'"
-echo "   - Или через CLI: airflow dags unpause $DAG_NAME"
+echo "3. Activate the DAG:"
+echo "   - Via UI: toggle the DAG '$DAG_NAME' on"
+echo "   - Or via CLI: airflow dags unpause $DAG_NAME"
 echo ""
-echo "4. Запустите вручную (опционально):"
+echo "4. Trigger manually (optional):"
 echo "   airflow dags trigger $DAG_NAME"
 echo ""
-echo "5. Вернуть на 100% данных:"
+echo "5. Revert to 100% data:"
 echo "   airflow variables set geo_marts_sample_fraction 1.0"
-echo "   (или удалите переменную: airflow variables delete geo_marts_sample_fraction)"
+echo "   (or delete the variable: airflow variables delete geo_marts_sample_fraction)"
 echo ""

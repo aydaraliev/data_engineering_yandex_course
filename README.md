@@ -1,37 +1,36 @@
 # Yandex Practicum Data Engineer — Project Portfolio
 
-English-language overview and translations of the project work completed during the Yandex Practicum Data Engineer course. This is a single portfolio repository: the English translations and short descriptions live at the top level (`sprint-*/` and `final-*/`), while the original project source code — snapshotted from each GitHub repo — is embedded under [`de-projects/`](de-projects/) as example material. The source READMEs are in Russian; the translations and overviews here are in English.
+English-language portfolio of the project work completed during the Yandex Practicum Data Engineer course. Each sprint lives in its own top-level directory with a README and the full source code.
 
 Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. The course's sprint 4 (data quality) did not produce a standalone project.
 
 ## Repository layout
 
 - `README.md` — this overview.
-- `sprint-3-customer-retention/` … `sprint-9-guest-tagging/`, `final-s3-to-vertica/` — English write-ups for each deliverable.
-- `de-projects/` — snapshotted source code for every deliverable.
+- `sprint-3-customer-retention/` … `sprint-9-guest-tagging/`, `final-s3-to-vertica/` — one directory per deliverable, each with its own English README and the full source code (DAGs, SQL, scripts, Helm charts, etc.).
 - `certificates/` — course-completion certificates ([English](certificates/certificate_Aliev_Aydar_DE_ENG.pdf), [Russian](certificates/certificate_Aliev_Aydar_DE_RUS.pdf)).
 
 ## Project index
 
-| # | Description | Title | Source code | Stack | Theme |
-|---|-------------|-------|-------------|-------|-------|
-| 1 | [sprint-3-customer-retention](sprint-3-customer-retention/README.md) | Customer Retention ETL | [de-projects/de-project-sprint-3](de-projects/de-project-sprint-3/) | Airflow, PostgreSQL, SQLAlchemy, pandas | API → stage → `mart.f_sales` + weekly retention mart |
-| 2 | [sprint-5-courier-ledger](sprint-5-courier-ledger/README.md) | Courier Payout Data Mart | [de-projects/de-project-sprint-5](de-projects/de-project-sprint-5/) | Airflow, PostgreSQL, REST API | Multi-layer DWH (STG → DDS → CDM) |
-| 3 | [sprint-6-group-conversion](sprint-6-group-conversion/README.md) | Social Network Group Conversion Analysis | [de-projects/de-project-sprint-6](de-projects/de-project-sprint-6/) | Airflow, Vertica, S3, pandas | Data Vault extension, analytical SQL |
-| 4 | [sprint-7-geo-recommendations](sprint-7-geo-recommendations/README.md) | Geo Recommendations Data Lake | [de-projects/de-project-sprint-7](de-projects/de-project-sprint-7/) | PySpark, HDFS, YARN, Airflow | Three-layer Data Lake (RAW → ODS → MART) |
-| 5 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming Service | [de-projects/de-project-sprint-8](de-projects/de-project-sprint-8/) | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
-| 6 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | [de-projects/de-project-sprint-9](de-projects/de-project-sprint-9/) | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
-| 7 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | [de-projects/de-project-final](de-projects/de-project-final/) | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
+| # | Directory | Title | Stack | Theme |
+|---|-----------|-------|-------|-------|
+| 1 | [sprint-3-customer-retention](sprint-3-customer-retention/README.md) | Customer Retention ETL | Airflow, PostgreSQL, SQLAlchemy, pandas | API → stage → `mart.f_sales` + weekly retention mart |
+| 2 | [sprint-5-courier-ledger](sprint-5-courier-ledger/README.md) | Courier Payout Data Mart | Airflow, PostgreSQL, REST API | Multi-layer DWH (STG → DDS → CDM) |
+| 3 | [sprint-6-group-conversion](sprint-6-group-conversion/README.md) | Social Network Group Conversion Analysis | Airflow, Vertica, S3, pandas | Data Vault extension, analytical SQL |
+| 4 | [sprint-7-geo-recommendations](sprint-7-geo-recommendations/README.md) | Geo Recommendations Data Lake | PySpark, HDFS, YARN, Airflow | Three-layer Data Lake (RAW → ODS → MART) |
+| 5 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming Service | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
+| 6 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
+| 7 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
 
 ## Short descriptions (English)
 
 ### Sprint 3 — Customer Retention ETL
 
-Single-DAG Airflow pipeline (`ETL_full_pipeline_alchemy`) that pulls a daily training-API report, materialises three staging tables from CSV with pandas, and rebuilds two marts in PostgreSQL: a transactional `mart.f_sales` fact (with a signed `sign` column that models refunds as negative amounts) and a weekly `mart.f_customer_retention` mart computing new, returning, and refunded customer counts together with revenue per group. All database work goes through SQLAlchemy; idempotency is enforced by `to_sql(if_exists="replace")` on staging and by targeted `DELETE` + `INSERT` windows on the marts.
+Single-DAG Airflow pipeline (`ETL_full_pipeline_alchemy`) that pulls a daily training-API report, materializes three staging tables from CSV with pandas, and rebuilds two marts in PostgreSQL: a transactional `mart.f_sales` fact (with a signed `sign` column that models refunds as negative amounts) and a weekly `mart.f_customer_retention` mart computing new, returning, and refunded customer counts together with revenue per group. All database work goes through SQLAlchemy; idempotency is enforced by `to_sql(if_exists="replace")` on staging and by targeted `DELETE` + `INSERT` windows on the marts.
 
 ### Sprint 5 — Courier Payout Data Mart
 
-Extends an existing food-delivery DWH with a monthly courier payout mart `cdm.dm_courier_ledger`. The pipeline pulls raw courier, delivery, and rating data from a REST API into the staging layer, normalises them into DDS (including an SCD2 `dm_couriers` dimension and a new `dm_deliveries` fact), and computes the final mart with order-processing fees, tips, rating-based reward tiers, and net reward per courier. Orchestrated with Airflow, backed by PostgreSQL, and deployed via Docker Compose.
+Extends an existing food-delivery DWH with a monthly courier payout mart `cdm.dm_courier_ledger`. The pipeline pulls raw courier, delivery, and rating data from a REST API into the staging layer, normalizes them into DDS (including an SCD2 `dm_couriers` dimension and a new `dm_deliveries` fact), and computes the final mart with order-processing fees, tips, rating-based reward tiers, and net reward per courier. Orchestrated with Airflow, backed by PostgreSQL, and deployed via Docker Compose.
 
 ### Sprint 6 — Social Network Group Conversion Analysis
 

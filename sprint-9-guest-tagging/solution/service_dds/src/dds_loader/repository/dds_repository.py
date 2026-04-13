@@ -7,13 +7,13 @@ from lib.pg import PgConnect
 from pydantic import BaseModel
 
 
-# Вспомогательная функция для генерации UUID из строки
+# Helper function for generating a UUID from a string
 def generate_uuid(value: str) -> uuid.UUID:
-    """Генерирует детерминированный UUID на основе MD5-хеша строки."""
+    """Generate a deterministic UUID from the MD5 hash of the input string."""
     return uuid.UUID(hashlib.md5(value.encode()).hexdigest())
 
 
-# ==================== Модели для хабов ====================
+# ==================== Hub models ====================
 
 class H_User(BaseModel):
     h_user_pk: uuid.UUID
@@ -51,7 +51,7 @@ class H_Order(BaseModel):
     load_src: str
 
 
-# ==================== Модели для линков ====================
+# ==================== Link models ====================
 
 class L_Order_User(BaseModel):
     hk_order_user_pk: uuid.UUID
@@ -85,7 +85,7 @@ class L_Product_Category(BaseModel):
     load_src: str
 
 
-# ==================== Модели для сателлитов ====================
+# ==================== Satellite models ====================
 
 class S_User_Names(BaseModel):
     h_user_pk: uuid.UUID
@@ -133,7 +133,7 @@ class DdsRepository:
     def __init__(self, db: PgConnect) -> None:
         self._db = db
 
-    # ==================== Методы вставки в хабы ====================
+    # ==================== Hub insert methods ====================
 
     def h_user_insert(self, user: H_User) -> None:
         with self._db.connection() as conn:
@@ -206,7 +206,7 @@ class DdsRepository:
                     "load_src": order.load_src
                 })
 
-    # ==================== Методы вставки в линки ====================
+    # ==================== Link insert methods ====================
 
     def l_order_user_insert(self, link: L_Order_User) -> None:
         with self._db.connection() as conn:
@@ -268,7 +268,7 @@ class DdsRepository:
                     "load_src": link.load_src
                 })
 
-    # ==================== Методы вставки в сателлиты ====================
+    # ==================== Satellite insert methods ====================
 
     def s_user_names_insert(self, sat: S_User_Names) -> None:
         with self._db.connection() as conn:

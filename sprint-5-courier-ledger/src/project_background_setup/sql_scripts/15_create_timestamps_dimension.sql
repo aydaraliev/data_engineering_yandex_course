@@ -1,4 +1,4 @@
--- Создание таблицы dm_timestamps в схеме dds
+-- Create the dm_timestamps table in the dds schema
 CREATE TABLE IF NOT EXISTS dds.dm_timestamps
 (
     id    SERIAL PRIMARY KEY,

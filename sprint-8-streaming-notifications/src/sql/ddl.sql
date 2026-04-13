@@ -1,10 +1,10 @@
--- DDL скрипты для проекта Sprint 8
--- Сервис подписок на рестораны (Restaurant Subscribe Streaming Service)
+-- DDL scripts for the Sprint 8 project
+-- Restaurant Subscribe Streaming Service
 
 -- ============================================
--- Таблица подписчиков ресторанов (ИСТОЧНИК)
--- База: rc1a-fswjkpli01zafgjm.mdb.yandexcloud.net:6432/de
--- Уже существует и заполнена данными
+-- Restaurant subscribers table (SOURCE)
+-- Database: rc1a-fswjkpli01zafgjm.mdb.yandexcloud.net:6432/de
+-- Already exists and is populated with data
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.subscribers_restaurants (
     id serial4 NOT NULL,
@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS public.subscribers_restaurants (
 );
 
 -- ============================================
--- Таблица фидбэка подписчиков (НАЗНАЧЕНИЕ)
--- База: localhost:5432/de (внутри Docker контейнера)
--- Создаётся пустой, заполняется стримингом
+-- Subscribers feedback table (DESTINATION)
+-- Database: localhost:5432/de (inside the Docker container)
+-- Created empty, populated by the streaming job
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.subscribers_feedback (
     id serial4 NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.subscribers_feedback (
     CONSTRAINT id_pk PRIMARY KEY (id)
 );
 
--- Unique constraint для идемпотентности при сбоях foreachBatch
--- Если PG write прошёл, но Kafka упал - при retry дубли будут отклонены
+-- Unique constraint for idempotency when foreachBatch fails
+-- If the PG write succeeded but Kafka failed, duplicates will be rejected on retry
 CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_unique
     ON public.subscribers_feedback(restaurant_id, adv_campaign_id, client_id, datetime_created);

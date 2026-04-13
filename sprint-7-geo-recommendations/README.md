@@ -1,7 +1,5 @@
 # Sprint 7 Project: Geo Recommendations Data Lake
 
-Source snapshot: [`de-projects/de-project-sprint-7/`](../de-projects/de-project-sprint-7/)
-
 ## Overview
 
 A production-grade Data Lake solution that delivers geo-aware recommendations for users of a social network serving the Australian region. The project covers location tracking, per-city event analytics, and friend recommendations, implemented on Apache Spark, HDFS, and Apache Airflow.
@@ -9,7 +7,7 @@ A production-grade Data Lake solution that delivers geo-aware recommendations fo
 ## Project Layout
 
 ```
-de-project-sprint-7/
+sprint-7-geo-recommendations/
 ├── dags/
 │   ├── geo_marts_dag.py          # Airflow orchestration
 │   ├── validate_dag.py           # DAG validation
@@ -34,39 +32,22 @@ de-project-sprint-7/
 
 ### Three-layer architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       RAW LAYER (source)                     │
-│  /user/master/data/geo/events   (Parquet, partitioned by date)│
-│  /user/ajdaral1ev/project/geo/raw/geo_csv/geo.csv            │
-└────────────────┬────────────────────────────────────────────┘
-                 │ READ
-                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     ODS LAYER (operational)                   │
-│  /user/ajdaral1ev/project/geo/ods/events_with_cities         │
-│                                                               │
-│  ✓ Events enriched with city information                      │
-│  ✓ City resolution computed once (Haversine)                  │
-│  ✓ Partitioned by date                                        │
-│  ✓ Reused by every downstream mart                            │
-└────────────────┬────────────────────────────────────────────┘
-                 │ READ (all marts)
-        ┌────────┼────────┐
-        ▼        ▼        ▼
-   ┌─────────┐ ┌─────────┐ ┌─────────┐
-   │User Geo │ │Zone Mart│ │ Friend  │
-   │  Mart   │ │         │ │Recommend│
-   └────┬────┘ └────┬────┘ └────┬────┘
-        │ WRITE     │ WRITE     │ WRITE
-        ▼           ▼           ▼
-┌────────────────────────────────────────┐
-│            MART LAYER                   │
-│  /user/ajdaral1ev/project/geo/mart/     │
-│  ├── user_geo_report                    │
-│  ├── zone_mart (partitioned by month)   │
-│  └── friend_recommendations             │
-└────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    RAW["<b>RAW LAYER</b> (source)<br/>/user/master/data/geo/events (Parquet, partitioned by date)<br/>/user/&lt;hdfs-user&gt;/project/geo/raw/geo_csv/geo.csv"]
+    ODS["<b>ODS LAYER</b> (operational)<br/>/user/&lt;hdfs-user&gt;/project/geo/ods/events_with_cities<br/>• Events enriched with city information<br/>• City resolution computed once (Haversine)<br/>• Partitioned by date<br/>• Reused by every downstream mart"]
+    UGR["User Geo<br/>Mart"]
+    ZM["Zone<br/>Mart"]
+    FR["Friend<br/>Recommend"]
+    MART["<b>MART LAYER</b><br/>/user/&lt;hdfs-user&gt;/project/geo/mart/<br/>├── user_geo_report<br/>├── zone_mart (partitioned by month)<br/>└── friend_recommendations"]
+
+    RAW -- READ --> ODS
+    ODS -- READ --> UGR
+    ODS -- READ --> ZM
+    ODS -- READ --> FR
+    UGR -- WRITE --> MART
+    ZM -- WRITE --> MART
+    FR -- WRITE --> MART
 ```
 
 ### Benefits of the ODS layer
@@ -80,18 +61,18 @@ de-project-sprint-7/
 **With the ODS layer:**
 1. **Performance:** roughly 3× speed-up (expensive operations happen once).
 2. **Reuse:** the enriched data serves every mart.
-3. **Data quality:** validation and checks are centralised.
+3. **Data quality:** validation and checks are centralized.
 4. **Fast iteration:** marts can be rebuilt from ODS without rereading RAW.
 5. **Debugging:** easier to isolate problems at each pipeline stage.
 
-## Implemented Optimisations
+## Implemented Optimizations
 
 ### 1. Broadcast join for the city dictionary ✅
 
 **File:** `geo_utils.py:114`
 
 ```python
-# OPTIMISATION: broadcast the small city table (24 rows).
+# OPTIMIZATION: broadcast the small city table (24 rows).
 events_with_cities = events_df.crossJoin(F.broadcast(cities_renamed))
 ```
 
@@ -121,7 +102,7 @@ All scripts set:
 spark.sql.adaptive.enabled = true
 ```
 
-**Effect:** dynamic plan optimisation based on runtime statistics.
+**Effect:** dynamic plan optimization based on runtime statistics.
 
 ### 4. Shuffle partition tuning ✅
 
@@ -150,7 +131,7 @@ spark.sql.shuffle.partitions = 20  # For the 1.5 GB dataset
 ### 1. User Geo Analytics Mart
 
 - **Script:** `user_geo_mart.py`
-- **Output:** `/user/ajdaral1ev/project/geo/mart/user_geo_report`
+- **Output:** `/user/student/project/geo/mart/user_geo_report`
 
 **Schema:**
 
@@ -172,7 +153,7 @@ spark.sql.shuffle.partitions = 20  # For the 1.5 GB dataset
 ### 2. Zone (City) Mart
 
 - **Script:** `zone_mart.py`
-- **Output:** `/user/ajdaral1ev/project/geo/mart/zone_mart` (partitioned by month)
+- **Output:** `/user/student/project/geo/mart/zone_mart` (partitioned by month)
 
 **Schema:**
 
@@ -199,7 +180,7 @@ spark.sql.shuffle.partitions = 20  # For the 1.5 GB dataset
 ### 3. Friend Recommendations Mart
 
 - **Script:** `friend_recommendations.py`
-- **Output:** `/user/ajdaral1ev/project/geo/mart/friend_recommendations`
+- **Output:** `/user/student/project/geo/mart/friend_recommendations`
 
 **Schema:**
 
@@ -270,12 +251,12 @@ pip install pyspark apache-airflow-providers-apache-spark
 
 ```bash
 # Upload the city dictionary
-hdfs dfs -put geo.csv /user/ajdaral1ev/project/geo/raw/geo_csv/
+hdfs dfs -put geo.csv /user/student/project/geo/raw/geo_csv/
 
 # Copy the scripts onto the server
 scp -i ~/.ssh/ssh_private_key \
     src/scripts/*.py \
-    yc-user@158.160.218.207:/lessons/scripts/
+    cluster-user@10.0.0.11:/lessons/scripts/
 ```
 
 ### 2. Create the HDFS structure
@@ -337,18 +318,18 @@ airflow tasks logs geo_marts_update update_user_geo_report $(date +%Y-%m-%d)
 ### HDFS output checks
 
 ```bash
-hdfs dfs -ls /user/ajdaral1ev/project/geo/ods/
-hdfs dfs -ls /user/ajdaral1ev/project/geo/mart/
+hdfs dfs -ls /user/student/project/geo/ods/
+hdfs dfs -ls /user/student/project/geo/mart/
 
-hdfs dfs -count /user/ajdaral1ev/project/geo/ods/events_with_cities
-hdfs dfs -count /user/ajdaral1ev/project/geo/mart/user_geo_report
+hdfs dfs -count /user/student/project/geo/ods/events_with_cities
+hdfs dfs -count /user/student/project/geo/mart/user_geo_report
 
 spark-shell
-val ods = spark.read.parquet("/user/ajdaral1ev/project/geo/ods/events_with_cities")
+val ods = spark.read.parquet("/user/student/project/geo/ods/events_with_cities")
 ods.show(10, truncate=false)
 ods.printSchema()
 
-val ugr = spark.read.parquet("/user/ajdaral1ev/project/geo/mart/user_geo_report")
+val ugr = spark.read.parquet("/user/student/project/geo/mart/user_geo_report")
 ugr.show(10, truncate=false)
 ```
 
@@ -356,20 +337,20 @@ ugr.show(10, truncate=false)
 
 ```scala
 // User geo mart validation
-val ugr = spark.read.parquet("/user/ajdaral1ev/project/geo/mart/user_geo_report")
+val ugr = spark.read.parquet("/user/student/project/geo/mart/user_geo_report")
 ugr.filter($"act_city".isNull).count()   // Must be 0
 ugr.filter($"travel_count" < 1).count()  // Must be 0
 
 // Zone mart validation
-val zm = spark.read.parquet("/user/ajdaral1ev/project/geo/mart/zone_mart")
+val zm = spark.read.parquet("/user/student/project/geo/mart/zone_mart")
 zm.filter($"week_message" > $"month_message").count() // Must be 0
 
 // Friend recommendations validation
-val fr = spark.read.parquet("/user/ajdaral1ev/project/geo/mart/friend_recommendations")
+val fr = spark.read.parquet("/user/student/project/geo/mart/friend_recommendations")
 fr.filter($"user_left" >= $"user_right").count() // Must be 0
 
 // ODS layer check
-val ods = spark.read.parquet("/user/ajdaral1ev/project/geo/ods/events_with_cities")
+val ods = spark.read.parquet("/user/student/project/geo/ods/events_with_cities")
 ods.filter($"city".isNull).count() // Must be 0
 ods.groupBy("city").count().show(24)
 ```
@@ -381,15 +362,15 @@ ods.groupBy("city").count().show(24)
 ```
 Source data:
   /user/master/data/geo/events (Parquet, partitioned by date)
-  /user/ajdaral1ev/project/geo/raw/geo_csv/geo.csv
+  /user/student/project/geo/raw/geo_csv/geo.csv
 
 ODS layer:
-  /user/ajdaral1ev/project/geo/ods/events_with_cities
+  /user/student/project/geo/ods/events_with_cities
 
 Marts:
-  /user/ajdaral1ev/project/geo/mart/user_geo_report
-  /user/ajdaral1ev/project/geo/mart/zone_mart
-  /user/ajdaral1ev/project/geo/mart/friend_recommendations
+  /user/student/project/geo/mart/user_geo_report
+  /user/student/project/geo/mart/zone_mart
+  /user/student/project/geo/mart/friend_recommendations
 ```
 
 ### Spark configuration
@@ -440,7 +421,7 @@ spark.sql.shuffle.partitions = 10
 
 ```bash
 # Verify the city table is small
-hdfs dfs -cat /user/ajdaral1ev/project/geo/raw/geo_csv/geo.csv | wc -l
+hdfs dfs -cat /user/student/project/geo/raw/geo_csv/geo.csv | wc -l
 # Must be 24 cities
 
 # Make sure the broadcast hint is in place (already implemented)
@@ -449,21 +430,21 @@ hdfs dfs -cat /user/ajdaral1ev/project/geo/raw/geo_csv/geo.csv | wc -l
 
 ### HDFS permission denied
 
-**Problem:** `org.apache.hadoop.security.AccessControlException: Permission denied: user=ajdara1iev`.
+**Problem:** `org.apache.hadoop.security.AccessControlException: Permission denied: user=student`.
 
-**Cause:** the Airflow user (`ajdara1iev`) cannot write to HDFS directories owned by `root:hadoop`.
+**Cause:** the Airflow user (`student`) cannot write to HDFS directories owned by `root:hadoop`.
 
 **Fix:**
 
 ```bash
 # 1. Change ownership of all project directories
-docker exec student-sp7-2-ajdara1iev-0-3691838488 \
-  bash -c 'HADOOP_USER_NAME=hdfs hdfs dfs -chown -R ajdara1iev:hadoop /user/ajdaral1ev/project/geo'
+docker exec student-sp7-2-student-0-3691838488 \
+  bash -c 'HADOOP_USER_NAME=hdfs hdfs dfs -chown -R student:hadoop /user/student/project/geo'
 
 # 2. Verify permissions
-docker exec student-sp7-2-ajdara1iev-0-3691838488 \
-  hdfs dfs -ls /user/ajdaral1ev/project/geo
-# Expected: drwxrwxr-x ajdara1iev hadoop
+docker exec student-sp7-2-student-0-3691838488 \
+  hdfs dfs -ls /user/student/project/geo
+# Expected: drwxrwxr-x student hadoop
 ```
 
 **Automated fix:** the `./setup_hdfs.sh` script now applies the correct ownership and permissions (`775`) to every directory.
@@ -520,7 +501,7 @@ Five shell scripts automate deployment and monitoring:
 ```
 
 **What it does:**
-- Checks SSH connectivity to the cluster (`158.160.159.232`).
+- Checks SSH connectivity to the cluster (`10.0.0.10`).
 - Copies 5 Python scripts onto the server.
 - Places the scripts inside the Docker container under `/lessons/scripts/`.
 - Verifies that deployment succeeded.
@@ -546,7 +527,7 @@ Five shell scripts automate deployment and monitoring:
 
 **Resulting structure:**
 ```
-/user/ajdaral1ev/project/geo/
+/user/student/project/geo/
 ├── raw/
 │   └── geo_csv/geo.csv
 ├── ods/
@@ -693,7 +674,7 @@ PERFORMANCE METRICS:
 ============================================
 ```
 
-**Expected gains from the optimisations:**
+**Expected gains from the optimizations:**
 
 | Component      | Before | After  | Improvement |
 |----------------|--------|--------|-------------|
@@ -737,19 +718,19 @@ git commit -m "feat: describe the feature"
 git push origin feature/my-feature
 ```
 
-## Licence
+## License
 
 Internal project for Data Engineering Sprint 7.
 
 ## Contacts
 
 - **Project:** Data Lake Geo Recommendations.
-- **Owner:** `ajdaral1ev`.
-- **Infrastructure:** Yandex Cloud (`158.160.218.207`).
+- **Owner:** `student`.
+- **Infrastructure:** Yandex Cloud (`10.0.0.11`).
 - **Years:** 2024–2025.
 
 ---
 
-**Project status:** ✅ Production-ready with an ODS layer and the optimisations above.
+**Project status:** ✅ Production-ready with an ODS layer and the optimizations above.
 
 **Last updated:** 2025-12-23.

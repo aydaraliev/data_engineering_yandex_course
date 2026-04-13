@@ -1,94 +1,94 @@
 #!/usr/bin/env python3
 """
-Скрипт для валидации DAG перед развёртыванием.
+Script for validating the DAG before deployment.
 
-Проверяет:
-- Синтаксис Python
-- Импорты Airflow
-- Структуру DAG
-- Зависимости между задачами
-- Параметры задач
+Checks:
+- Python syntax
+- Airflow imports
+- DAG structure
+- Task dependencies
+- Task parameters
 """
 
 import sys
 import os
 
 def validate_dag():
-    """Валидирует DAG файл."""
+    """Validates the DAG file."""
     print("=" * 70)
-    print("ВАЛИДАЦИЯ DAG: geo_marts_dag.py")
+    print("DAG VALIDATION: geo_marts_dag.py")
     print("=" * 70)
 
     errors = []
     warnings = []
 
-    # 1. Проверка существования файла
-    print("\n1. Проверка файла...")
+    # 1. Check that the file exists
+    print("\n1. Checking the file...")
     dag_file = os.path.join(os.path.dirname(__file__), 'geo_marts_dag.py')
 
     if not os.path.exists(dag_file):
-        errors.append(f"Файл не найден: {dag_file}")
-        print(f"   ❌ Файл не найден")
+        errors.append(f"File not found: {dag_file}")
+        print(f"   File not found")
         return errors, warnings
 
-    print(f"   ✓ Файл существует: {dag_file}")
+    print(f"   File exists: {dag_file}")
 
-    # 2. Проверка синтаксиса Python
-    print("\n2. Проверка синтаксиса Python...")
+    # 2. Check Python syntax
+    print("\n2. Checking Python syntax...")
     try:
         with open(dag_file, 'r') as f:
             code = f.read()
             compile(code, dag_file, 'exec')
-        print("   ✓ Синтаксис Python корректен")
+        print("   Python syntax is correct")
     except SyntaxError as e:
-        errors.append(f"Ошибка синтаксиса Python: {e}")
-        print(f"   ❌ Ошибка синтаксиса: {e}")
+        errors.append(f"Python syntax error: {e}")
+        print(f"   Syntax error: {e}")
         return errors, warnings
 
-    # 3. Попытка импортировать DAG
-    print("\n3. Импорт DAG...")
+    # 3. Try importing the DAG
+    print("\n3. Importing the DAG...")
     try:
         sys.path.insert(0, os.path.dirname(__file__))
         from geo_marts_dag import dag
-        print("   ✓ DAG успешно импортирован")
+        print("   DAG imported successfully")
     except ImportError as e:
-        errors.append(f"Ошибка импорта: {e}")
-        print(f"   ❌ Ошибка импорта: {e}")
+        errors.append(f"Import error: {e}")
+        print(f"   Import error: {e}")
         return errors, warnings
     except Exception as e:
-        errors.append(f"Ошибка при импорте DAG: {e}")
-        print(f"   ❌ Ошибка: {e}")
+        errors.append(f"Error while importing the DAG: {e}")
+        print(f"   Error: {e}")
         return errors, warnings
 
-    # 4. Проверка атрибутов DAG
-    print("\n4. Проверка атрибутов DAG...")
+    # 4. Check DAG attributes
+    print("\n4. Checking DAG attributes...")
 
     if not hasattr(dag, 'dag_id'):
-        errors.append("DAG не имеет dag_id")
-        print("   ❌ Отсутствует dag_id")
+        errors.append("DAG has no dag_id")
+        print("   Missing dag_id")
     else:
-        print(f"   ✓ DAG ID: {dag.dag_id}")
+        print(f"   DAG ID: {dag.dag_id}")
 
     if not hasattr(dag, 'schedule_interval'):
-        warnings.append("DAG не имеет schedule_interval")
-        print("   ⚠ Отсутствует schedule_interval")
+        warnings.append("DAG has no schedule_interval")
+        print("   Missing schedule_interval")
     else:
-        print(f"   ✓ Schedule: {dag.schedule_interval}")
+        print(f"   Schedule: {dag.schedule_interval}")
 
     if not hasattr(dag, 'default_args'):
-        warnings.append("DAG не имеет default_args")
-        print("   ⚠ Отсутствует default_args")
+        warnings.append("DAG has no default_args")
+        print("   Missing default_args")
     else:
-        print(f"   ✓ Default args: {len(dag.default_args)} параметров")
+        print(f"   Default args: {len(dag.default_args)} parameters")
 
-    # 5. Проверка задач
-    print("\n5. Проверка задач...")
+    # 5. Check tasks
+    print("\n5. Checking tasks...")
 
     if not hasattr(dag, 'tasks') or len(dag.tasks) == 0:
-        errors.append("DAG не содержит задач")
-        print("   ❌ Задачи отсутствуют")
+        errors.append("DAG has no tasks")
+        print("   Tasks are missing")
     else:
-        print(f"   ✓ Количество задач: {len(dag.tasks)}")
+        print(f"   Number of tasks: {len(dag.tasks)}")
 
         expected_tasks = [
             'start',
@@ -102,16 +102,16 @@ def validate_dag():
 
         for expected_task in expected_tasks:
             if expected_task in task_ids:
-                print(f"   ✓ Задача найдена: {expected_task}")
+                print(f"   Task found: {expected_task}")
             else:
-                errors.append(f"Задача не найдена: {expected_task}")
-                print(f"   ❌ Задача отсутствует: {expected_task}")
+                errors.append(f"Task not found: {expected_task}")
+                print(f"   Missing task: {expected_task}")
 
-    # 6. Проверка зависимостей
-    print("\n6. Проверка зависимостей...")
+    # 6. Check dependencies
+    print("\n6. Checking dependencies...")
 
     try:
-        # Проверяем цепочку зависимостей
+        # Verify the dependency chain
         tasks_dict = {task.task_id: task for task in dag.tasks}
 
         expected_deps = [
@@ -127,70 +127,70 @@ def validate_dag():
                 downstream_task = tasks_dict[downstream_id]
 
                 if downstream_task in upstream_task.downstream_list:
-                    print(f"   ✓ Зависимость: {upstream_id} → {downstream_id}")
+                    print(f"   Dependency: {upstream_id} -> {downstream_id}")
                 else:
-                    errors.append(f"Отсутствует зависимость: {upstream_id} → {downstream_id}")
-                    print(f"   ❌ Зависимость отсутствует: {upstream_id} → {downstream_id}")
+                    errors.append(f"Missing dependency: {upstream_id} -> {downstream_id}")
+                    print(f"   Dependency missing: {upstream_id} -> {downstream_id}")
             else:
-                errors.append(f"Задачи не найдены для проверки зависимости: {upstream_id} → {downstream_id}")
+                errors.append(f"Tasks not found for dependency check: {upstream_id} -> {downstream_id}")
 
     except Exception as e:
-        errors.append(f"Ошибка при проверке зависимостей: {e}")
-        print(f"   ❌ Ошибка: {e}")
+        errors.append(f"Error while checking dependencies: {e}")
+        print(f"   Error: {e}")
 
-    # 7. Проверка типов операторов
-    print("\n7. Проверка типов операторов...")
+    # 7. Check operator types
+    print("\n7. Checking operator types...")
 
     for task in dag.tasks:
         task_type = type(task).__name__
         print(f"   - {task.task_id}: {task_type}")
 
-        # Проверка SparkSubmitOperator
+        # Check SparkSubmitOperator
         if 'update' in task.task_id:
             if task_type != 'SparkSubmitOperator':
-                warnings.append(f"Задача {task.task_id} должна быть SparkSubmitOperator, а не {task_type}")
+                warnings.append(f"Task {task.task_id} should be SparkSubmitOperator, not {task_type}")
             else:
-                # Проверяем наличие обязательных параметров
+                # Check required parameters are present
                 if not hasattr(task, 'application') or not task.application:
-                    errors.append(f"Задача {task.task_id} не имеет параметра application")
+                    errors.append(f"Task {task.task_id} has no application parameter")
                 else:
                     print(f"     Application: {task.application}")
 
                 if not hasattr(task, 'py_files') or not task.py_files:
-                    warnings.append(f"Задача {task.task_id} не имеет py_files (geo_utils.py)")
+                    warnings.append(f"Task {task.task_id} has no py_files (geo_utils.py)")
                 else:
                     print(f"     Py files: {task.py_files}")
 
-    # 8. Проверка циклических зависимостей
-    print("\n8. Проверка на циклические зависимости...")
+    # 8. Check for cyclic dependencies
+    print("\n8. Checking for cyclic dependencies...")
 
     try:
         from airflow.utils.dag_cycle_tester import check_cycle
         check_cycle(dag)
-        print("   ✓ Циклические зависимости отсутствуют")
+        print("   No cyclic dependencies")
     except Exception as e:
-        errors.append(f"Обнаружена циклическая зависимость: {e}")
-        print(f"   ❌ Циклическая зависимость: {e}")
+        errors.append(f"Cyclic dependency detected: {e}")
+        print(f"   Cyclic dependency: {e}")
 
-    # Итоги
+    # Summary
     print("\n" + "=" * 70)
-    print("ИТОГИ ВАЛИДАЦИИ")
+    print("VALIDATION SUMMARY")
     print("=" * 70)
 
     if len(errors) == 0 and len(warnings) == 0:
-        print("✅ DAG полностью валиден! Готов к развёртыванию.")
+        print("DAG is fully valid! Ready for deployment.")
         return_code = 0
     elif len(errors) == 0:
-        print(f"⚠️  DAG валиден с предупреждениями ({len(warnings)}):")
+        print(f"DAG is valid with warnings ({len(warnings)}):")
         for warning in warnings:
             print(f"   - {warning}")
         return_code = 0
     else:
-        print(f"❌ DAG содержит ошибки ({len(errors)}):")
+        print(f"DAG contains errors ({len(errors)}):")
         for error in errors:
             print(f"   - {error}")
         if len(warnings) > 0:
-            print(f"\nПредупреждения ({len(warnings)}):")
+            print(f"\nWarnings ({len(warnings)}):")
             for warning in warnings:
                 print(f"   - {warning}")
         return_code = 1

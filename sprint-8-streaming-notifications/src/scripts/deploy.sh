@@ -1,5 +1,5 @@
 #!/bin/bash
-# Скрипт для деплоя файлов на удалённый сервер в Docker контейнер
+# Script for deploying files to a remote server's Docker container
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
@@ -8,11 +8,11 @@ REMOTE_SCRIPTS_DIR="/scripts"
 
 echo "=== Deploying to $REMOTE_HOST ==="
 
-# Копируем Python скрипты на удалённый хост
+# Copy Python scripts to the remote host
 echo "Copying files to remote host..."
 scp -i "$SSH_KEY" "$SCRIPT_DIR/streaming.py" "$REMOTE_USER@$REMOTE_HOST:/tmp/"
 
-# Копируем файлы внутрь Docker контейнера
+# Copy files into the Docker container
 echo "Copying files to Docker container..."
 ssh -i "$SSH_KEY" "$REMOTE_USER@$REMOTE_HOST" "\
     docker exec $DOCKER_CONTAINER mkdir -p $REMOTE_SCRIPTS_DIR && \
@@ -22,5 +22,5 @@ ssh -i "$SSH_KEY" "$REMOTE_USER@$REMOTE_HOST" "\
 echo "=== Deploy complete ==="
 echo "Files deployed to container:$REMOTE_SCRIPTS_DIR/"
 
-# Показываем содержимое директории
+# Show directory contents
 ssh -i "$SSH_KEY" "$REMOTE_USER@$REMOTE_HOST" "docker exec $DOCKER_CONTAINER ls -la $REMOTE_SCRIPTS_DIR/"

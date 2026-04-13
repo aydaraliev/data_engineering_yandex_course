@@ -22,31 +22,31 @@ dag = DAG(
 )
 
 def load_ranks():
-    # Подключение к источнику
+    # Connect to the source
     origin_hook = PostgresHook(postgres_conn_id='PG_ORIGIN_BONUS_SYSTEM_CONNECTION')
-    # Подключение к DWH
+    # Connect to the DWH
     dwh_hook = PostgresHook(postgres_conn_id='PG_WAREHOUSE_CONNECTION')
 
-    # Читаем данные из источника
+    # Read data from the source
     origin_conn = origin_hook.get_conn()
     origin_cursor = origin_conn.cursor()
     origin_cursor.execute("SELECT * FROM ranks")
     rows = origin_cursor.fetchall()
 
-    # Получаем названия колонок
+    # Fetch column names
     colnames = [desc[0] for desc in origin_cursor.description]
 
     origin_cursor.close()
     origin_conn.close()
 
-    # Записываем в DWH
+    # Write into the DWH
     dwh_conn = dwh_hook.get_conn()
     dwh_cursor = dwh_conn.cursor()
 
-    # Очищаем таблицу перед загрузкой
+    # Truncate the table before loading
     dwh_cursor.execute("TRUNCATE TABLE stg.bonussystem_ranks")
 
-    # Вставляем данные
+    # Insert the data
     if rows:
         placeholders = ','.join(['%s'] * len(colnames))
         insert_query = f"INSERT INTO stg.bonussystem_ranks ({','.join(colnames)}) VALUES ({placeholders})"
@@ -57,31 +57,31 @@ def load_ranks():
     dwh_conn.close()
 
 def load_users():
-    # Подключение к источнику
+    # Connect to the source
     origin_hook = PostgresHook(postgres_conn_id='PG_ORIGIN_BONUS_SYSTEM_CONNECTION')
-    # Подключение к DWH
+    # Connect to the DWH
     dwh_hook = PostgresHook(postgres_conn_id='PG_WAREHOUSE_CONNECTION')
 
-    # Читаем данные из источника
+    # Read data from the source
     origin_conn = origin_hook.get_conn()
     origin_cursor = origin_conn.cursor()
     origin_cursor.execute("SELECT * FROM users")
     rows = origin_cursor.fetchall()
 
-    # Получаем названия колонок
+    # Fetch column names
     colnames = [desc[0] for desc in origin_cursor.description]
 
     origin_cursor.close()
     origin_conn.close()
 
-    # Записываем в DWH
+    # Write into the DWH
     dwh_conn = dwh_hook.get_conn()
     dwh_cursor = dwh_conn.cursor()
 
-    # Очищаем таблицу перед загрузкой
+    # Truncate the table before loading
     dwh_cursor.execute("TRUNCATE TABLE stg.bonussystem_users")
 
-    # Вставляем данные
+    # Insert the data
     if rows:
         placeholders = ','.join(['%s'] * len(colnames))
         insert_query = f"INSERT INTO stg.bonussystem_users ({','.join(colnames)}) VALUES ({placeholders})"
@@ -92,17 +92,17 @@ def load_users():
     dwh_conn.close()
 
 def load_events():
-    # Подключение к источнику
+    # Connect to the source
     origin_hook = PostgresHook(postgres_conn_id='PG_ORIGIN_BONUS_SYSTEM_CONNECTION')
-    # Подключение к DWH
+    # Connect to the DWH
     dwh_hook = PostgresHook(postgres_conn_id='PG_WAREHOUSE_CONNECTION')
 
-    # Получаем соединение к DWH
+    # Obtain a DWH connection
     dwh_conn = dwh_hook.get_conn()
     dwh_cursor = dwh_conn.cursor()
 
     try:
-        # 1. Считываем состояние загрузки из stg.srv_wf_settings
+        # 1. Read the load state from stg.srv_wf_settings
         workflow_key = 'bonussystem_events_load'
         dwh_cursor.execute("""
             SELECT workflow_settings
@@ -113,8 +113,8 @@ def load_events():
         result = dwh_cursor.fetchone()
         if result:
             raw_settings = result[0]
-            # workflow_settings хранится как json, поэтому psycopg уже вернет dict.
-            # Но при миграциях может приехать строка — нормализуем оба варианта.
+            # workflow_settings is stored as json, so psycopg already returns a dict.
+            # After migrations it may arrive as a string, so normalize both cases.
             if isinstance(raw_settings, str):
                 raw_settings = json.loads(raw_settings)
             settings = raw_settings or {}
@@ -122,7 +122,7 @@ def load_events():
         else:
             last_loaded_id = 0
 
-        # 2. Читаем новые записи из источника
+        # 2. Read new records from the source
         origin_conn = origin_hook.get_conn()
         origin_cursor = origin_conn.cursor()
         origin_cursor.execute("""
@@ -137,7 +137,7 @@ def load_events():
         origin_conn.close()
 
         if rows:
-            # 3. Вставляем данные в stg.bonussystem_events
+            # 3. Insert data into stg.bonussystem_events
             insert_query = """
                 INSERT INTO stg.bonussystem_events (id, event_ts, event_type, event_value)
                 VALUES (%s, %s, %s, %s)
@@ -145,34 +145,34 @@ def load_events():
             """
             dwh_cursor.executemany(insert_query, rows)
 
-            # 4. Обновляем состояние загрузки (в той же транзакции!)
-            new_last_id = rows[-1][0]  # id последней записи
+            # 4. Update the load state (in the same transaction!)
+            new_last_id = rows[-1][0]  # id of the last record
             new_settings = json.dumps({'last_loaded_id': new_last_id})
 
-            # Проверяем существует ли запись
+            # Check whether the record already exists
             dwh_cursor.execute("""
                 SELECT id FROM stg.srv_wf_settings WHERE workflow_key = %s
             """, (workflow_key,))
 
             if dwh_cursor.fetchone():
-                # Обновляем существующую запись
+                # Update the existing record
                 dwh_cursor.execute("""
                     UPDATE stg.srv_wf_settings
                     SET workflow_settings = %s
                     WHERE workflow_key = %s
                 """, (new_settings, workflow_key))
             else:
-                # Вставляем новую запись
+                # Insert a new record
                 dwh_cursor.execute("""
                     INSERT INTO stg.srv_wf_settings (workflow_key, workflow_settings)
                     VALUES (%s, %s)
                 """, (workflow_key, new_settings))
 
-        # Коммитим транзакцию (шаги 3 и 4 выполняются атомарно)
+        # Commit the transaction (steps 3 and 4 run atomically)
         dwh_conn.commit()
 
     except Exception as e:
-        # В случае ошибки откатываем транзакцию
+        # Roll back the transaction on error
         dwh_conn.rollback()
         raise e
     finally:

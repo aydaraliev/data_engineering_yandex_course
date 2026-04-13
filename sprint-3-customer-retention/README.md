@@ -1,7 +1,5 @@
 # Sprint 3 Project: Customer Retention ETL
 
-Source snapshot: [`de-projects/de-project-sprint-3/`](../de-projects/de-project-sprint-3/)
-
 A single-DAG ETL pipeline that lifts order data from an HTTP report API into PostgreSQL and builds two marts:
 
 - `mart.f_sales` — a transactional sales fact table that models both shipped and refunded orders.
@@ -12,14 +10,14 @@ The whole pipeline runs in one Airflow DAG (`ETL_full_pipeline_alchemy`) and use
 ## Repository Layout
 
 ```
-de-project-sprint-3/
+sprint-3-customer-retention/
 ├── migrations/                       # SQL migration files (empty placeholder)
 ├── project_sprint_3/
 │   ├── ETL_full_pipeline_alchemy.py  # The full DAG
 │   └── db_connect.txt                # Connection notes
 ├── src/
 │   └── dags/                         # DAG placeholder directory
-└── README.md                         # Boilerplate course instructions (Russian)
+└── README.md                         # This document
 ```
 
 ## Local container
@@ -52,7 +50,7 @@ The DAG is divided into three logical stages that match the translated docstring
   - `user_order_log.csv` → `stage.user_order_log`
   - `user_activity_log.csv` → `stage.user_activity_log`
   - `customer_research.csv` → `stage.customer_research`
-- Normalises the order log: if the historical format lacks a `status` column, `shipped` is added as the default.
+- Normalizes the order log: if the historical format lacks a `status` column, `shipped` is added as the default.
 - Loads each file with `pandas.to_sql(if_exists="replace")` so the staging tables are rebuilt on every run, keeping the pipeline idempotent.
 
 ### Stage 2 — Fact table `mart.f_sales`
@@ -162,7 +160,7 @@ CREATE TABLE IF NOT EXISTS mart.f_customer_retention (
 
 - Airflow connection id: `pg_connection`.
 - Local cache directory for CSV copies: `/opt/airflow/data`.
-- External API: `https://d5dg1j9kt695d30blp03.apigw.yandexcloud.net` with `X-API-KEY`, `X-Nickname`, `X-Cohort`, and `X-Project` headers. The training credentials live directly in the script.
+- External API: `https://d5dg1j9kt695d30blp03.apigw.yandexcloud.net` with `X-API-KEY`, `X-Nickname`, `X-Cohort`, and `X-Project` headers. The API token is read from the `PRACTICUM_API_TOKEN` environment variable.
 
 ## Notes on Course Workflow
 
