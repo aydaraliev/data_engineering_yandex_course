@@ -1,19 +1,26 @@
 # Yandex Practicum Data Engineer — Project Portfolio
 
-English-language overview and translations of the project work completed during the Yandex Practicum Data Engineer course. Each project lives in its own repository at the sibling directories `de-project-sprint-5` through `de-project-sprint-9` and `de-project-final`. The source README of every project is written in Russian; this directory contains English translations together with a short description of each deliverable.
+English-language overview and translations of the project work completed during the Yandex Practicum Data Engineer course. Each project lives in its own repository at sibling directories in `~/PycharmProjects/`. The source README of every project is written in Russian; this directory contains English translations together with a short description of each deliverable.
+
+Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. Sprint 4 (data quality) exists only as an empty placeholder folder inside the sprint 3 repository and has no submitted project.
 
 ## Project index
 
-| # | Directory | Title | Stack | Theme |
-|---|-----------|-------|-------|-------|
-| 1 | [sprint-5-courier-ledger](sprint-5-courier-ledger/README.md) | Courier Payout Data Mart | Airflow, PostgreSQL, REST API | Multi-layer DWH (STG → DDS → CDM) |
-| 2 | [sprint-6-group-conversion](sprint-6-group-conversion/README.md) | Social Network Group Conversion | Airflow, Vertica, S3, pandas | Data Vault extension, analytical SQL |
-| 3 | [sprint-7-geo-recommendations](sprint-7-geo-recommendations/README.md) | Geo Recommendations Data Lake | PySpark, HDFS, YARN, Airflow | Three-layer Data Lake (RAW → ODS → MART) |
-| 4 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
-| 5 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
-| 6 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
+| # | Directory | Title | Source repository | Stack | Theme |
+|---|-----------|-------|-------------------|-------|-------|
+| 1 | [sprint-3-customer-retention](sprint-3-customer-retention/README.md) | Customer Retention ETL | `data_engineering/` | Airflow, PostgreSQL, SQLAlchemy, pandas | API → stage → `mart.f_sales` + weekly retention mart |
+| 2 | [sprint-5-courier-ledger](sprint-5-courier-ledger/README.md) | Courier Payout Data Mart | `de-project-sprint-5/` | Airflow, PostgreSQL, REST API | Multi-layer DWH (STG → DDS → CDM) |
+| 3 | [sprint-6-group-conversion](sprint-6-group-conversion/README.md) | Social Network Group Conversion | `de-project-sprint-6/` | Airflow, Vertica, S3, pandas | Data Vault extension, analytical SQL |
+| 4 | [sprint-7-geo-recommendations](sprint-7-geo-recommendations/README.md) | Geo Recommendations Data Lake | `de-project-sprint-7/` | PySpark, HDFS, YARN, Airflow | Three-layer Data Lake (RAW → ODS → MART) |
+| 5 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming | `de-project-sprint-8/` | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
+| 6 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | `de-project-sprint-9/` | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
+| 7 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | `de-project-final/` | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
 
 ## Short descriptions (English)
+
+### Sprint 3 — Customer Retention ETL
+
+Single-DAG Airflow pipeline (`ETL_full_pipeline_alchemy`) that pulls a daily training-API report, materialises three staging tables from CSV with pandas, and rebuilds two marts in PostgreSQL: a transactional `mart.f_sales` fact (with a signed `sign` column that models refunds as negative amounts) and a weekly `mart.f_customer_retention` mart computing new, returning, and refunded customer counts together with revenue per group. All database work goes through SQLAlchemy; idempotency is enforced by `to_sql(if_exists="replace")` on staging and by targeted `DELETE` + `INSERT` windows on the marts.
 
 ### Sprint 5 — Courier Payout Data Mart
 
