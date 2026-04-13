@@ -219,17 +219,17 @@ Read messages from Kafka:
 
 ## Mapping to the Architecture Diagram
 
-| Architecture block | Implementation | Lines |
-|-------------------|---------------|-------|
-| Kafka → JSON DataFrame | `from_json()` | 79–84 |
-| Time filter | `filter()` | 90–93 |
-| Read subscribers | `spark.read.jdbc()` | 95–103 |
-| Join stream and static | `join()` | 157–161 |
-| `trigger_datetime_created` | `unix_timestamp()` | 172 |
-| Persist DataFrame | `df.persist()` | 118 |
-| PostgreSQL (with feedback) | `df_with_feedback.write` | 122–131 |
-| JSON → Kafka (without feedback) | `to_json() + write` | 135–145 |
-| Unpersist | `df.unpersist()` | 153 |
+| Architecture block | Implementation |
+|-------------------|---------------|
+| Kafka → JSON DataFrame | `from_json()` |
+| Time filter | `filter()` on `adv_campaign_datetime_start/_end` |
+| Read subscribers | `spark.read.jdbc()` + `cache()` |
+| Join stream and static | `join()` on `restaurant_id` |
+| `trigger_datetime_created` | `unix_timestamp(current_timestamp()).cast(IntegerType())` |
+| Persist DataFrame | `df.persist()` inside `foreachBatch` |
+| PostgreSQL write (with feedback) | `df.write.jdbc()` inside `foreach_batch_function` |
+| JSON → Kafka (without feedback) | `to_json(struct(col("*"))) + write.kafka` |
+| Unpersist | `df.unpersist()` |
 
 ## Code-Review Follow-ups
 
