@@ -1,8 +1,9 @@
 # AI tool local state
 .claude/
 
-# dmux session/worktree metadata
+# dmux session/worktree metadata and hooks
 .dmux/
+.dmux-hooks/
 
 # Python
 __pycache__/

@@ -4,6 +4,13 @@ English-language overview and translations of the project work completed during 
 
 Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. The course's sprint 4 (data quality) did not produce a standalone project.
 
+## Repository layout
+
+- `README.md` — this overview.
+- `sprint-3-customer-retention/` … `sprint-9-guest-tagging/`, `final-s3-to-vertica/` — English write-ups for each deliverable.
+- `de-projects/` — snapshotted source code for every deliverable.
+- `certificates/` — course-completion certificates ([English](certificates/certificate_Aliev_Aydar_DE_ENG.pdf), [Russian](certificates/certificate_Aliev_Aydar_DE_RUS.pdf)).
+
 ## Project index
 
 | # | Description | Title | Source code | Stack | Theme |
