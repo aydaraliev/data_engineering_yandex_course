@@ -1,14 +1,23 @@
 # Yandex Practicum Data Engineer — Project Portfolio
 
-English-language portfolio of the project work completed during the Yandex Practicum Data Engineer course. Each sprint lives in its own top-level directory with a README and the full source code.
+English-language portfolio of seven data-engineering projects completed during the Yandex Practicum Data Engineer course. Each deliverable lives in its own top-level directory — no nested `de-projects/` layer, no submodules — with its own README plus the full source (DAGs, SQL, scripts, Helm charts, screenshots). Clone the repo and every project is browsable without extra setup.
 
 Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. The course's sprint 4 (data quality) did not produce a standalone project.
 
 ## Repository layout
 
-- `README.md` — this overview.
-- `sprint-3-customer-retention/` … `sprint-9-guest-tagging/`, `final-s3-to-vertica/` — one directory per deliverable, each with its own English README and the full source code (DAGs, SQL, scripts, Helm charts, etc.).
-- `certificates/` — course-completion certificates ([English](certificates/certificate_Aliev_Aydar_DE_ENG.pdf), [Russian](certificates/certificate_Aliev_Aydar_DE_RUS.pdf)).
+```
+data_engineering_yandex_course/
+├── README.md                          # this overview
+├── sprint-3-customer-retention/       # Airflow + PostgreSQL: API → stage → marts
+├── sprint-5-courier-ledger/           # Multi-layer DWH (STG → DDS → CDM)
+├── sprint-6-group-conversion/         # Vertica Data Vault extension + analytical SQL
+├── sprint-7-geo-recommendations/      # PySpark Data Lake (RAW → ODS → MART)
+├── sprint-8-streaming-notifications/  # Spark Structured Streaming + Kafka
+├── sprint-9-guest-tagging/            # Microservices on Data Vault 2.0 (Docker, Helm)
+├── final-s3-to-vertica/               # Capstone S3 → Vertica ETL
+└── certificates/                      # Course-completion certificates
+```
 
 ## Project index
 
@@ -21,6 +30,13 @@ Sprint coverage: 3, 5, 6, 7, 8, 9, and the final capstone. The course's sprint 4
 | 5 | [sprint-8-streaming-notifications](sprint-8-streaming-notifications/README.md) | Restaurant Subscription Streaming Service | Spark Structured Streaming, Kafka, PostgreSQL | Real-time join of stream and reference data |
 | 6 | [sprint-9-guest-tagging](sprint-9-guest-tagging/README.md) | Guest Tagging DWH Pipeline | Python, Kafka, Redis, PostgreSQL, Docker, Kubernetes, Helm | Microservices STG/DDS/CDM over Data Vault 2.0 |
 | 7 | [final-s3-to-vertica](final-s3-to-vertica/README.md) | Final Project: S3 → Vertica ETL | Airflow, Vertica, S3 | End-to-end ETL with staging and reporting mart |
+
+## Certificates
+
+Issued on completion of the Yandex Practicum Data Engineer programme (see [`certificates/`](certificates/)):
+
+- [English certificate (PDF)](certificates/certificate_Aliev_Aydar_DE_ENG.pdf)
+- [Russian certificate (PDF)](certificates/certificate_Aliev_Aydar_DE_RUS.pdf)
 
 ## Short descriptions (English)
 

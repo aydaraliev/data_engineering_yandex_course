@@ -80,12 +80,18 @@ Before inserting the new rows the DAG deletes any existing rows for the weeks be
 
 ## DAG Topology
 
-```
-init_db
-  ├── ddl_stage      (PostgresOperator: DDL for stage.*)
-  └── ddl_mart       (PostgresOperator: DDL for mart.*)
-        ↓
-create_report → wait_report → load_stage → refresh_f_sales → refresh_f_retention
+```mermaid
+flowchart LR
+    subgraph INIT["init_db (TaskGroup)"]
+        DDL1["ddl_stage<br/>PostgresOperator"]
+        DDL2["ddl_mart<br/>PostgresOperator"]
+    end
+    CR["create_report"]
+    WR["wait_report"]
+    LS["load_stage"]
+    RS["refresh_f_sales"]
+    RR["refresh_f_retention"]
+    INIT --> CR --> WR --> LS --> RS --> RR
 ```
 
 Scheduling and runtime parameters:

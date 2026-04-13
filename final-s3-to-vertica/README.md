@@ -4,17 +4,15 @@ Final project for the Data Engineer course. An ETL pipeline that loads transacti
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    S3[("Yandex S3<br/>transactions_*<br/>currencies_*")]
+    STG[("Vertica STAGING<br/>transactions (raw)<br/>currencies (raw)")]
+    DWH[("Vertica DWH<br/>global_metrics (mart)")]
+    S3 --> STG --> DWH
 ```
-┌─────────────────┐     ┌─────────────────────────┐     ┌─────────────────────────┐
-│   Yandex S3     │     │   Vertica STAGING       │     │   Vertica DWH           │
-│                 │     │                         │     │                         │
-│ transactions_*  │────▶│ transactions (raw)      │────▶│ global_metrics (mart)   │
-│ currencies_*    │     │ currencies   (raw)      │     │                         │
-└─────────────────┘     └─────────────────────────┘     └─────────────────────────┘
-        │                         │                               │
-        └─────────────────────────┴───────────────────────────────┘
-                              Airflow DAGs
-```
+
+Both hops are orchestrated by Airflow DAGs.
 
 ## Project Layout
 
@@ -74,13 +72,17 @@ final-s3-to-vertica/
 
 ## DAG Pipeline
 
-```
-DAG 1: 1_load_staging                    DAG 2: 2_load_dwh
-┌─────────────────────────┐              ┌─────────────────────┐
-│ load_currencies         │              │                     │
-│         ↓               │──trigger────▶│ load_global_metrics │
-│ load_transactions       │              │                     │
-└─────────────────────────┘              └─────────────────────┘
+```mermaid
+flowchart LR
+    subgraph DAG1["DAG 1 — 1_load_staging"]
+        LC["load_currencies"]
+        LT["load_transactions"]
+        LC --> LT
+    end
+    subgraph DAG2["DAG 2 — 2_load_dwh"]
+        LG["load_global_metrics"]
+    end
+    DAG1 -- trigger --> DAG2
 ```
 
 **`1_load_staging`:**

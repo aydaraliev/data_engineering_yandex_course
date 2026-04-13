@@ -8,56 +8,29 @@ The service processes restaurant promotional campaigns in real time and delivers
 
 ### Architecture
 
+```mermaid
+flowchart TD
+    STAFF["Restaurant staff"]
+    PG_SUB[("PostgreSQL<br/>subscribers_restaurants")]
+    KAFKA_IN[["Kafka topic_in"]]
+    SPARK["Spark Structured Streaming"]
+    PG_FEED[("PostgreSQL<br/>subscribers_feedback")]
+    KAFKA_OUT[["Kafka topic_out"]]
+    ANALYTICS["Feedback analytics"]
+    NOTIFY["Notification service"]
+    PUSH["Push notifications to users"]
+
+    STAFF --> KAFKA_IN
+    KAFKA_IN --> SPARK
+    PG_SUB --> SPARK
+    SPARK --> PG_FEED
+    SPARK --> KAFKA_OUT
+    PG_FEED --> ANALYTICS
+    KAFKA_OUT --> NOTIFY
+    NOTIFY --> PUSH
 ```
-                         DATA SOURCES
-+-------------------+                      +-----------------------+
-|    Restaurant     |                      |      PostgreSQL        |
-|      staff        |                      | subscribers_restaurants|
-+--------+----------+                      +-----------+-----------+
-         |                                             |
-         v                                             |
-+-------------------+                                  |
-|      Kafka        |                                  |
-|    (topic_in)     |                                  |
-+--------+----------+                                  |
-         |                                             |
-         +------------------+  +------------------------+
-                            |  |
-                            v  v
-              +-----------------------------+
-              |       SPARK STREAMING       |
-              |-----------------------------|
-              | 1. Parse JSON               |
-              | 2. Filter by time window    |
-              | 3. JOIN with subscribers    |
-              | 4. Add trigger_datetime     |
-              | 5. Persist DataFrame        |
-              | 6. Write to PostgreSQL      |
-              | 7. Serialize as JSON        |
-              | 8. Push to Kafka            |
-              | 9. Unpersist DataFrame      |
-              +-------------+---------------+
-                            |
-            +---------------+---------------+
-            |                               |
-            v                               v
-+-------------------+             +-------------------+
-|    PostgreSQL     |             |       Kafka       |
-| subscribers_feedback|           |    (topic_out)    |
-+--------+----------+             +---------+---------+
-         |                                  |
-         v                                  v
-+-------------------+             +-------------------+
-|   Feedback        |             |  Notification     |
-|   analytics       |             |  service          |
-+-------------------+             +--------+----------+
-                                           |
-                                           v
-                                  +-------------------+
-                                  | Push notifications|
-                                  |    to users       |
-                                  +-------------------+
-```
+
+**Spark Streaming job steps:** parse JSON → filter by time window → join with subscribers → add `trigger_datetime` → persist DataFrame → write to PostgreSQL → serialize as JSON → push to Kafka → unpersist.
 
 ## Project Layout
 

@@ -19,131 +19,67 @@ kubectl get deployments
 
 ### Overall Diagram
 
+```mermaid
+flowchart LR
+    subgraph YC["Yandex Cloud managed services"]
+        REDIS[("Redis<br/>6380")]
+        KAFKA[["Kafka<br/>9091"]]
+        PG[("PostgreSQL<br/>6432")]
+    end
+
+    subgraph DC["Docker Compose"]
+        STG["STG service<br/>port 5011"]
+        DDS["DDS service<br/>port 5012"]
+        CDM["CDM service<br/>port 5013"]
+    end
+
+    KAFKA -- order-service-orders --> STG
+    REDIS -- enrich --> STG
+    STG -- writes stg.order_events --> PG
+    STG -- stg-service-orders --> KAFKA
+    KAFKA -- stg-service-orders --> DDS
+    DDS -- writes dds.h_*, l_*, s_* --> PG
+    DDS -- dds-service-orders --> KAFKA
+    KAFKA -- dds-service-orders --> CDM
+    CDM -- writes cdm.user_*_counters --> PG
 ```
-+==============================================================================+
-|                              YANDEX CLOUD                                    |
-|                                                                              |
-|    +-------------+       +-------------+       +-------------+               |
-|    |    REDIS    |       |    KAFKA    |       | POSTGRESQL  |               |
-|    | (port 6380) |       | (port 9091) |       | (port 6432) |               |
-|    +------+------+       +------+------+       +------+------+               |
-|           |                     |                     |                      |
-+===========|=====================|=====================|======================+
-            |                     |                     |
-            v                     v                     v
-+===========|=====================|=====================|======================+
-|           |            DOCKER COMPOSE                 |                      |
-|           |                     |                     |                      |
-|  +--------+---------------------+---------------------+-------------------+  |
-|  |                     STG SERVICE (port 5011)                            |  |
-|  |                                                                        |  |
-|  |   [Flask /health]  [APScheduler 25s]  [Kafka Consumer]  [Kafka Producer]  |
-|  |                           |                  |                |        |  |
-|  |                           v                  |                |        |  |
-|  |                   +----------------+         |                |        |  |
-|  |                   | StgMessage     |<--------+                |        |  |
-|  |                   | Processor      |------------------------->+        |  |
-|  |                   +-------+--------+                                   |  |
-|  |                           |                                            |  |
-|  |                           v                                            |  |
-|  |                   +----------------+         +----------------+        |  |
-|  |                   | Redis Client   |-------->| stg.order_     |        |  |
-|  |                   | (enrich data)  |         | events (PG)    |        |  |
-|  |                   +----------------+         +----------------+        |  |
-|  +------------------------------------------------------------------------+  |
-|           |                                                                  |
-|           |  Kafka: order-service-orders --> stg-service-orders              |
-|           v                                                                  |
-|  +------------------------------------------------------------------------+  |
-|  |                     DDS SERVICE (port 5012)                            |  |
-|  |                                                                        |  |
-|  |   [Flask /health]  [APScheduler 25s]  [Kafka Consumer]  [Kafka Producer]  |
-|  |                           |                  |                |        |  |
-|  |                           v                  |                |        |  |
-|  |                   +----------------+         |                |        |  |
-|  |                   | DdsMessage     |<--------+                |        |  |
-|  |                   | Processor      |------------------------->+        |  |
-|  |                   +-------+--------+                                   |  |
-|  |                           |                                            |  |
-|  |                           v                                            |  |
-|  |                   +----------------+         +----------------+        |  |
-|  |                   | DdsRepository  |-------->| dds.h_*, l_*,  |        |  |
-|  |                   | (Data Vault)   |         | s_* (PG)       |        |  |
-|  |                   +----------------+         +----------------+        |  |
-|  +------------------------------------------------------------------------+  |
-|           |                                                                  |
-|           |  Kafka: stg-service-orders --> dds-service-orders                |
-|           v                                                                  |
-|  +------------------------------------------------------------------------+  |
-|  |                     CDM SERVICE (port 5013)                            |  |
-|  |                                                                        |  |
-|  |   [Flask /health]  [APScheduler 25s]  [Kafka Consumer]                 |  |
-|  |                           |                  |                         |  |
-|  |                           v                  |                         |  |
-|  |                   +----------------+         |                         |  |
-|  |                   | CdmMessage     |<--------+                         |  |
-|  |                   | Processor      |                                   |  |
-|  |                   +-------+--------+                                   |  |
-|  |                           |                                            |  |
-|  |                           v                                            |  |
-|  |                   +----------------+         +----------------+        |  |
-|  |                   | CdmRepository  |-------->| cdm.user_*_    |        |  |
-|  |                   | (data marts)   |         | counters (PG)  |        |  |
-|  |                   +----------------+         +----------------+        |  |
-|  +------------------------------------------------------------------------+  |
-|                                                                              |
-+==============================================================================+
-```
+
+Each service is a Flask app with a `/health` endpoint, an APScheduler tick every 25s, a Kafka consumer, and (except CDM) a Kafka producer. Message processors fan out through a repository layer onto PostgreSQL.
 
 ### Data Flow
 
-```
-+--------------+    +--------------+    +--------------+    +--------------+
-|   External   |    | STG service  |    | DDS service  |    | CDM service  |
-|    system    |    |              |    |              |    |              |
-+------+-------+    +------+-------+    +------+-------+    +------+-------+
-       |                   |                   |                   |
-       | 1. Order          |                   |                   |
-       +------------------>|                   |                   |
-       |    (Kafka)        |                   |                   |
-       |                   | 2. Enrich         |                   |
-       |                   |    from Redis     |                   |
-       |                   |                   |                   |
-       |                   | 3. Store to       |                   |
-       |                   |    PG (stg)       |                   |
-       |                   |                   |                   |
-       |                   | 4. Publish        |                   |
-       |                   +------------------>|                   |
-       |                   |    (Kafka)        |                   |
-       |                   |                   | 5. Parse into     |
-       |                   |                   |    Data Vault     |
-       |                   |                   |                   |
-       |                   |                   | 6. Store to       |
-       |                   |                   |    PG (dds)       |
-       |                   |                   |                   |
-       |                   |                   | 7. Publish        |
-       |                   |                   +------------------>|
-       |                   |                   |    (Kafka)        |
-       |                   |                   |                   | 8. Aggregate
-       |                   |                   |                   |
-       |                   |                   |                   | 9. Store to
-       |                   |                   |                   |    PG (cdm)
-       v                   v                   v                   v
+```mermaid
+sequenceDiagram
+    participant EXT as External system
+    participant STG as STG service
+    participant DDS as DDS service
+    participant CDM as CDM service
+    EXT->>STG: 1. Order (Kafka)
+    STG->>STG: 2. Enrich from Redis
+    STG->>STG: 3. Store to PG (stg)
+    STG->>DDS: 4. Publish (Kafka)
+    DDS->>DDS: 5. Parse into Data Vault
+    DDS->>DDS: 6. Store to PG (dds)
+    DDS->>CDM: 7. Publish (Kafka)
+    CDM->>CDM: 8. Aggregate
+    CDM->>CDM: 9. Store to PG (cdm)
 ```
 
 ### Kafka Topics
 
+```mermaid
+flowchart LR
+    T1[["order-service-orders<br/>(source)"]]
+    T2[["stg-service-orders<br/>(enriched)"]]
+    T3[["dds-service-orders<br/>(for CDM)"]]
+    T1 --> T2 --> T3
 ```
-+---------------------+      +---------------------+      +---------------------+
-| order-service-orders|----->| stg-service-orders  |----->| dds-service-orders  |
-| (source)            |      | (enriched)          |      | (for CDM)           |
-+---------------------+      +---------------------+      +---------------------+
-         |                            |                            |
-         v                            v                            v
-     STG reads                   DDS reads                   CDM reads
-    + writes PG                + writes PG                + writes PG
-    + writes Kafka             + writes Kafka
-```
+
+| Topic | Consumed by | Producer writes to |
+|-------|-------------|--------------------|
+| `order-service-orders` | STG | PG + `stg-service-orders` |
+| `stg-service-orders`   | DDS | PG + `dds-service-orders` |
+| `dds-service-orders`   | CDM | PG |
 
 ## Data Layers
 

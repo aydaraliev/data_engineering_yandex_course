@@ -34,12 +34,12 @@ sprint-7-geo-recommendations/
 
 ```mermaid
 flowchart TD
-    RAW["<b>RAW LAYER</b> (source)<br/>/user/master/data/geo/events (Parquet, partitioned by date)<br/>/user/&lt;hdfs-user&gt;/project/geo/raw/geo_csv/geo.csv"]
-    ODS["<b>ODS LAYER</b> (operational)<br/>/user/&lt;hdfs-user&gt;/project/geo/ods/events_with_cities<br/>• Events enriched with city information<br/>• City resolution computed once (Haversine)<br/>• Partitioned by date<br/>• Reused by every downstream mart"]
-    UGR["User Geo<br/>Mart"]
-    ZM["Zone<br/>Mart"]
-    FR["Friend<br/>Recommend"]
-    MART["<b>MART LAYER</b><br/>/user/&lt;hdfs-user&gt;/project/geo/mart/<br/>├── user_geo_report<br/>├── zone_mart (partitioned by month)<br/>└── friend_recommendations"]
+    RAW["RAW LAYER"]
+    ODS["ODS LAYER"]
+    UGR["User Geo Mart"]
+    ZM["Zone Mart"]
+    FR["Friend Recommend"]
+    MART["MART LAYER"]
 
     RAW -- READ --> ODS
     ODS -- READ --> UGR
@@ -49,6 +49,15 @@ flowchart TD
     ZM -- WRITE --> MART
     FR -- WRITE --> MART
 ```
+
+| Layer | HDFS path | Notes |
+|-------|-----------|-------|
+| RAW   | `/user/master/data/geo/events` | Course-provided event stream (Parquet, partitioned by date). |
+| RAW   | `/user/<hdfs-user>/project/geo/raw/geo_csv/geo.csv` | 24-row city dictionary. |
+| ODS   | `/user/<hdfs-user>/project/geo/ods/events_with_cities` | Events enriched with city info once (Haversine), partitioned by date, reused by every mart. |
+| MART  | `/user/<hdfs-user>/project/geo/mart/user_geo_report` | Per-user geography. |
+| MART  | `/user/<hdfs-user>/project/geo/mart/zone_mart` | Weekly / monthly zone aggregates, partitioned by month. |
+| MART  | `/user/<hdfs-user>/project/geo/mart/friend_recommendations` | Friend-recommendation candidates. |
 
 ### Benefits of the ODS layer
 
