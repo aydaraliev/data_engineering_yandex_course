@@ -75,7 +75,7 @@ DMUX_SERVER_PORT="3142"                # HTTP server port
 DMUX_PANE_ID="dmux-1234567890"         # dmux pane identifier
 DMUX_SLUG="fix-auth-bug"               # Branch/worktree name
 DMUX_PROMPT="Fix authentication bug"   # User's prompt
-DMUX_AGENT="claude"                    # Agent type (registry id, e.g. claude, codex, opencode)
+DMUX_AGENT="<agent-id>"                # Agent type (registry id, e.g. codex, opencode)
 DMUX_TMUX_PANE_ID="%38"                # tmux pane ID
 ```
 
@@ -266,7 +266,7 @@ export DMUX_PANE_ID="test-pane"
 export DMUX_SLUG="test-branch"
 export DMUX_WORKTREE_PATH="$(pwd)"
 export DMUX_SERVER_PORT="3142"
-export DMUX_AGENT="claude"
+export DMUX_AGENT="codex"
 export DMUX_PROMPT="Test prompt"
 
 # 2. Run hook directly
@@ -400,7 +400,6 @@ When creating a new hook:
 ## Getting Help
 
 - **Full documentation**: See `HOOKS.md` in project root
-- **Claude-specific tips**: See `CLAUDE.md` in `.dmux-hooks/`
 - **Examples**: Check `.dmux-hooks/examples/` directory
 - **dmux API**: See `API.md` for REST endpoints
 

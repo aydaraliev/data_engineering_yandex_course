@@ -6,7 +6,6 @@ This directory contains hooks that run automatically at key lifecycle events in 
 
 1. **Read the documentation**:
    - `AGENTS.md` - Complete reference (for any AI agent)
-   - `CLAUDE.md` - Same content (Claude Code looks for this filename)
 
 2. **Check examples**:
    - `examples/` directory contains starter templates
@@ -41,7 +40,7 @@ This directory contains hooks that run automatically at key lifecycle events in 
 
 ## Documentation
 
-See `AGENTS.md` or `CLAUDE.md` for complete documentation including:
+See `AGENTS.md` for complete documentation including:
 - Environment variables
 - HTTP callback API
 - Common patterns
